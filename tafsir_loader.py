@@ -101,17 +101,52 @@ def _truncate_text(text: str, max_length: int = None) -> str:
     return truncated + " (...)"
 
 
+def _load_ayah_text(base_path: str, surah_num: int, ayah_num: int) -> str | None:
+    """
+    Load raw tafsir text for a specific ayah (no truncation).
+
+    Lookup order:
+      1. Per-ayah file: {base_path}/{surah}/{ayah}.json
+      2. Surah-level file: {base_path}/{surah}.json -> search ayahs array
+
+    Returns None if not found.
+    """
+    # 1) Try per-ayah file
+    ayah_file = os.path.join(base_path, str(surah_num), f"{ayah_num}.json")
+    if os.path.exists(ayah_file):
+        try:
+            with open(ayah_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                text = data.get("text", "")
+                if text:
+                    return text
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # 2) Fallback: surah-level file
+    surah_file = os.path.join(base_path, f"{surah_num}.json")
+    if os.path.exists(surah_file):
+        try:
+            with open(surah_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for ayah in data.get("ayahs", []):
+                    if ayah.get("ayah") == ayah_num:
+                        text = ayah.get("text", "")
+                        if text:
+                            return text
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return None
+
+
 # ========================
 # 📖 TAFSIR LOADING
 # ========================
 
 def get_tafsir_for_ayah(surah_num: int, ayah_num: int, source: str = "qurtubi") -> str:
     """
-    Load tafsir text for a specific ayah from local JSON files.
-
-    Lookup order:
-      1. Per-ayah file: {source_path}/{surah}/{ayah}.json
-      2. Surah-level file: {source_path}/{surah}.json  → search ayahs array
+    Load tafsir text for a specific ayah, TRUNCATED for Telegram messages.
 
     Args:
         surah_num: Surah number (1-114)
@@ -123,34 +158,61 @@ def get_tafsir_for_ayah(surah_num: int, ayah_num: int, source: str = "qurtubi") 
         Falls back to a "not found" message.
     """
     base_path = _get_source_path(source)
-
-    # 1) Try per-ayah file: {surah}/{ayah}.json
-    ayah_file = os.path.join(base_path, str(surah_num), f"{ayah_num}.json")
-    if os.path.exists(ayah_file):
-        try:
-            with open(ayah_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                text = data.get("text", "")
-                if text:
-                    return _truncate_text(text)
-        except (json.JSONDecodeError, KeyError):
-            pass
-
-    # 2) Fallback: surah-level file {surah}.json
-    surah_file = os.path.join(base_path, f"{surah_num}.json")
-    if os.path.exists(surah_file):
-        try:
-            with open(surah_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for ayah in data.get("ayahs", []):
-                    if ayah.get("ayah") == ayah_num:
-                        text = ayah.get("text", "")
-                        if text:
-                            return _truncate_text(text)
-        except (json.JSONDecodeError, KeyError):
-            pass
-
+    text = _load_ayah_text(base_path, surah_num, ayah_num)
+    if text:
+        return _truncate_text(text)
     return "Тафсир не найден для этого аята."
+
+
+def get_full_tafsir(surah_num: int, ayah_num: int, source: str = "qurtubi") -> str:
+    """
+    Load FULL tafsir text for a specific ayah WITHOUT truncation.
+    Used by the web app to display complete tafsir content.
+
+    Args:
+        surah_num: Surah number (1-114)
+        ayah_num:  Ayah number within the surah
+        source:    "qurtubi" (Arabic) or "qushairi" (English)
+
+    Returns:
+        Full tafsir text string (no truncation).
+        Falls back to a "not found" message.
+    """
+    base_path = _get_source_path(source)
+    text = _load_ayah_text(base_path, surah_num, ayah_num)
+    if text:
+        return text
+    return "Tafsir not found for this ayah."
+
+
+def get_both_tafsirs(surah_num: int, ayah_num: int, full: bool = False) -> dict:
+    """
+    Load both Qurtubi and Qushairi tafsir for an ayah.
+
+    Args:
+        surah_num: Surah number (1-114)
+        ayah_num:  Ayah number within the surah
+        full:      If True, return full text; if False, truncated
+
+    Returns:
+        Dict with keys: qurtubi, qushairi, surah_name, surah_num, ayah_num
+    """
+    if full:
+        qurtubi = get_full_tafsir(surah_num, ayah_num, "qurtubi")
+        qushairi = get_full_tafsir(surah_num, ayah_num, "qushairi")
+    else:
+        qurtubi = get_tafsir_for_ayah(surah_num, ayah_num, "qurtubi")
+        qushairi = get_tafsir_for_ayah(surah_num, ayah_num, "qushairi")
+
+    return {
+        "qurtubi": qurtubi,
+        "qushairi": qushairi,
+        "surah_name": get_surah_name(surah_num),
+        "surah_num": surah_num,
+        "ayah_num": ayah_num,
+        "qurtubi_length": len(qurtubi),
+        "qushairi_length": len(qushairi),
+    }
 
 
 # ========================

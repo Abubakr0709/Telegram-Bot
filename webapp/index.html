@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1b0e">
+    <title>Quran Tafsir</title>
+
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Google Fonts: Arabic + Latin -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0d1b0e;
+            --bg-secondary: #142016;
+            --bg-card: #1a2e1d;
+            --bg-card-hover: #213a25;
+            --gold: #d4a847;
+            --gold-light: #e8c76a;
+            --gold-dim: #b08a30;
+            --green: #2d8f4e;
+            --green-light: #3cb371;
+            --green-dark: #1a5c30;
+            --text-primary: #e8e0d0;
+            --text-secondary: #b0a890;
+            --text-muted: #7a7260;
+            --text-arabic: #f0e8d8;
+            --border: #2a3f2d;
+            --border-gold: rgba(212, 168, 71, 0.3);
+            --shadow: rgba(0, 0, 0, 0.4);
+            --font-arabic: 'Amiri', 'Noto Naskh Arabic', serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --radius: 12px;
+            --radius-lg: 16px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* LOADING */
+        #loading {
+            position: fixed; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: var(--bg-primary); z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+        #loading.fade-out { opacity: 0; pointer-events: none; }
+        .loader-ornament { font-size: 48px; margin-bottom: 20px; animation: pulse 1.5s ease-in-out infinite; }
+        .loader-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border); border-top-color: var(--gold);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+        .loader-text { color: var(--text-secondary); font-size: 14px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { transform: scale(1); opacity:.8; } 50% { transform: scale(1.1); opacity:1; } }
+
+        /* CONTAINER */
+        .container { max-width: 640px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
+
+        /* HEADER */
+        .header {
+            text-align: center; padding: 24px 16px; margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            border-radius: var(--radius-lg); border: 1px solid var(--border-gold);
+            position: relative; overflow: hidden;
+        }
+        .header::before {
+            content: '﷽'; position: absolute; top: -10px; left: 50%;
+            transform: translateX(-50%); font-family: var(--font-arabic);
+            font-size: 80px; color: rgba(212,168,71,0.05); pointer-events: none;
+        }
+        .header-surah { font-family: var(--font-arabic); font-size: 28px; color: var(--gold); margin-bottom: 4px; direction: rtl; }
+        .header-ref { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+        .header-badge {
+            display: inline-block; background: rgba(212,168,71,0.15);
+            color: var(--gold-light); padding: 4px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 500; border: 1px solid var(--border-gold);
+        }
+
+        /* NAV */
+        .nav-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+        .nav-btn {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            gap: 6px; padding: 10px 12px; background: var(--bg-card);
+            color: var(--text-secondary); border: 1px solid var(--border);
+            border-radius: var(--radius); font-size: 13px; font-family: var(--font-body);
+            cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+        }
+        .nav-btn:hover,.nav-btn:active { background: var(--bg-card-hover); color: var(--gold-light); border-color: var(--border-gold); }
+        .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* LANG TABS */
+        .lang-tabs { display: flex; gap: 6px; margin-bottom: 20px; padding: 4px; background: var(--bg-secondary); border-radius: var(--radius); }
+        .lang-tab {
+            flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 500;
+            color: var(--text-muted); background: transparent; border: none;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-family: var(--font-body);
+        }
+        .lang-tab.active { background: var(--bg-card); color: var(--gold-light); box-shadow: 0 2px 8px var(--shadow); }
+        .lang-tab:hover:not(.active) { color: var(--text-secondary); }
+
+        /* SECTIONS */
+        .section {
+            margin-bottom: 16px; background: var(--bg-card);
+            border-radius: var(--radius-lg); border: 1px solid var(--border);
+            overflow: hidden; animation: fadeInUp 0.4s ease forwards; opacity: 0;
+        }
+        .section:nth-child(1) { animation-delay: 0.1s; }
+        .section:nth-child(2) { animation-delay: 0.2s; }
+        .section:nth-child(3) { animation-delay: 0.3s; }
+        .section:nth-child(4) { animation-delay: 0.4s; }
+        @keyframes fadeInUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+
+        .section-header {
+            display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+            background: linear-gradient(90deg, rgba(212,168,71,0.08), transparent);
+            border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+        }
+        .section-header:hover { background: linear-gradient(90deg, rgba(212,168,71,0.12), transparent); }
+        .section-icon { font-size: 20px; }
+        .section-title { flex: 1; font-size: 15px; font-weight: 600; color: var(--gold); }
+        .section-meta { font-size: 11px; color: var(--text-muted); background: rgba(212,168,71,0.1); padding: 2px 8px; border-radius: 10px; }
+        .section-toggle { color: var(--text-muted); font-size: 18px; transition: transform 0.3s ease; }
+        .section.collapsed .section-toggle { transform: rotate(-90deg); }
+        .section-body { padding: 16px; max-height: 4000px; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s ease; }
+        .section.collapsed .section-body { max-height: 0; padding-top: 0; padding-bottom: 0; }
+
+        /* ARABIC */
+        .arabic-text {
+            font-family: var(--font-arabic); font-size: 26px; line-height: 2;
+            color: var(--text-arabic); direction: rtl; text-align: right;
+            padding: 8px 0; word-spacing: 4px;
+        }
+
+        /* TRANSLATION */
+        .translation-text { font-size: 17px; line-height: 1.8; color: var(--text-primary); }
+
+        /* TAFSIR */
+        .tafsir-text { font-size: 16px; line-height: 1.9; color: var(--text-primary); white-space: pre-line; }
+        .tafsir-text.rtl { direction: rtl; text-align: right; font-family: var(--font-arabic); font-size: 18px; line-height: 2.1; }
+
+        /* ORIGINAL TOGGLE */
+        .original-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 12px; padding: 6px 12px;
+            background: rgba(212,168,71,0.1); border: 1px solid var(--border-gold);
+            border-radius: 8px; font-size: 12px; color: var(--text-secondary);
+            cursor: pointer; font-family: var(--font-body);
+        }
+        .original-toggle:hover { background: rgba(212,168,71,0.18); }
+        .original-text { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+        .original-text.visible { display: block; }
+
+        /* ERROR */
+        .error-box { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .error-box .error-icon { font-size: 48px; margin-bottom: 16px; }
+        .error-box .error-msg { font-size: 16px; margin-bottom: 8px; }
+        .error-box .error-detail { font-size: 13px; color: var(--text-muted); }
+        .retry-btn { margin-top: 20px; padding: 10px 24px; background: var(--green); color: white; border: none; border-radius: var(--radius); font-size: 14px; cursor: pointer; font-family: var(--font-body); }
+
+        /* TRANSLATE NOTICE */
+        .translate-notice {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; background: rgba(212,168,71,0.08);
+            border: 1px solid var(--border-gold); border-radius: var(--radius);
+            margin-bottom: 12px; font-size: 12px; color: var(--text-secondary);
+        }
+        .translate-notice .notice-icon { font-size: 16px; }
+
+        /* FOOTER */
+        .footer { text-align: center; padding: 24px 16px; color: var(--text-muted); font-size: 12px; }
+        .footer-prayer { font-family: var(--font-arabic); font-size: 18px; color: var(--gold-dim); direction: rtl; margin-bottom: 8px; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        @media (max-width: 400px) {
+            .container { padding: 12px; }
+            .arabic-text { font-size: 22px; }
+            .tafsir-text { font-size: 15px; }
+            .header-surah { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading">
+        <div class="loader-ornament">🕌</div>
+        <div class="loader-spinner"></div>
+        <div class="loader-text" id="loading-text">Loading tafsir...</div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="container" id="app" style="display: none;">
+
+        <div class="header" id="header">
+            <div class="header-surah" id="surah-name"></div>
+            <div class="header-ref" id="ayah-ref"></div>
+            <div class="header-badge" id="header-badge"></div>
+        </div>
+
+        <div class="nav-bar">
+            <button class="nav-btn" id="prev-btn" onclick="navigate('prev')">
+                <span>⬅️</span> <span data-i18n="prev">Пред.</span>
+            </button>
+            <button class="nav-btn" id="current-btn" disabled style="color: var(--gold-light); border-color: var(--border-gold);">
+                <span>📍</span> <span id="current-ref"></span>
+            </button>
+            <button class="nav-btn" id="next-btn" onclick="navigate('next')">
+                <span data-i18n="next">След.</span> <span>➡️</span>
+            </button>
+        </div>
+
+        <div class="lang-tabs">
+            <button class="lang-tab" data-lang="ru" onclick="switchLang('ru')">🇷🇺 Русский</button>
+            <button class="lang-tab" data-lang="en" onclick="switchLang('en')">🇬🇧 English</button>
+            <button class="lang-tab" data-lang="tr" onclick="switchLang('tr')">🇹🇷 Türkçe</button>
+        </div>
+
+        <!-- Arabic Ayah -->
+        <div class="section" id="sec-arabic">
+            <div class="section-header" onclick="toggleSection('sec-arabic')">
+                <span class="section-icon">📜</span>
+                <span class="section-title" data-i18n="arabic_text">Арабский текст</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-body">
+                <div class="arabic-text" id="arabic-text"></div>
+            </div>
+        </div>
+
+        <!-- Translation -->
+        <div class="section" id="sec-translation">
+            <div class="section-header" onclick="toggleSection('sec-translation')">
+                <span class="section-icon" id="trans-flag">🇷🇺</span>
+                <span class="section-title" data-i18n="translation">Перевод</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-body">
+                <div class="translation-text" id="translation-text"></div>
+            </div>
+        </div>
+
+        <!-- Tafsir al-Qurtubi -->
+        <div class="section" id="sec-qurtubi">
+            <div class="section-header" onclick="toggleSection('sec-qurtubi')">
+                <span class="section-icon">📚</span>
+                <span class="section-title">Tafsir al-Qurtubi</span>
+                <span class="section-meta" id="qurtubi-meta"></span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-body">
+                <div class="translate-notice" id="qurtubi-notice" style="display: none;">
+                    <span class="notice-icon">🌐</span>
+                    <span id="qurtubi-notice-text"></span>
+                </div>
+                <div class="tafsir-text" id="qurtubi-text"></div>
+                <!-- Show original button + hidden original text -->
+                <button class="original-toggle" id="qurtubi-orig-btn" onclick="toggleOriginal('qurtubi')" style="display:none;">
+                    📄 <span data-i18n="show_original">Показать оригинал</span>
+                </button>
+                <div class="original-text" id="qurtubi-original">
+                    <div class="tafsir-text rtl" id="qurtubi-raw-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tafsir al-Qushairi -->
+        <div class="section" id="sec-qushairi">
+            <div class="section-header" onclick="toggleSection('sec-qushairi')">
+                <span class="section-icon">📖</span>
+                <span class="section-title">Tafsir al-Qushairi</span>
+                <span class="section-meta" id="qushairi-meta"></span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-body">
+                <div class="translate-notice" id="qushairi-notice" style="display: none;">
+                    <span class="notice-icon">🌐</span>
+                    <span id="qushairi-notice-text"></span>
+                </div>
+                <div class="tafsir-text" id="qushairi-text"></div>
+                <button class="original-toggle" id="qushairi-orig-btn" onclick="toggleOriginal('qushairi')" style="display:none;">
+                    📄 <span data-i18n="show_original">Показать оригинал</span>
+                </button>
+                <div class="original-text" id="qushairi-original">
+                    <div class="tafsir-text" id="qushairi-raw-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-prayer">رَبِّ زِدْنِي عِلْمًا</div>
+            <div>Quran & Tafsir Bot</div>
+        </div>
+    </div>
+
+    <!-- ERROR STATE -->
+    <div id="error-state" style="display: none;">
+        <div class="container">
+            <div class="error-box">
+                <div class="error-icon">😔</div>
+                <div class="error-msg" id="error-msg">Failed to load tafsir</div>
+                <div class="error-detail" id="error-detail">Please try again</div>
+                <button class="retry-btn" onclick="loadTafsir()">🔄 Retry</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================
+        // CONFIG & STATE
+        // ========================
+        const API_BASE = window.location.origin;
+
+        let state = {
+            surah: 1,
+            ayah: 1,
+            lang: 'ru',
+            nav: { prev: null, next: null },
+            arabicText: '',
+            translationText: '',
+        };
+
+        const i18n = {
+            ru: {
+                prev: 'Пред.', next: 'След.',
+                arabic_text: 'Арабский текст', translation: 'Перевод',
+                chars: 'символов', loading: 'Загрузка тафсира...',
+                error: 'Ошибка загрузки', not_found: 'Тафсир не найден',
+                translated_from_ar: 'Переведено с арабского (Google Translate)',
+                translated_from_en: 'Переведено с английского (Google Translate)',
+                original_ar: 'Оригинал на арабском',
+                original_en: 'Оригинал на английском',
+                show_original: 'Показать оригинал',
+                hide_original: 'Скрыть оригинал',
+                translating: 'Переводится…',
+            },
+            en: {
+                prev: 'Prev.', next: 'Next',
+                arabic_text: 'Arabic Text', translation: 'Translation',
+                chars: 'chars', loading: 'Loading tafsir...',
+                error: 'Load error', not_found: 'Tafsir not found',
+                translated_from_ar: 'Translated from Arabic (Google Translate)',
+                translated_from_en: 'Original English text',
+                original_ar: 'Original Arabic',
+                original_en: 'Original English',
+                show_original: 'Show original',
+                hide_original: 'Hide original',
+                translating: 'Translating…',
+            },
+            tr: {
+                prev: 'Önceki', next: 'Sonraki',
+                arabic_text: 'Arapça Metin', translation: 'Çeviri',
+                chars: 'karakter', loading: 'Tefsir yükleniyor...',
+                error: 'Yükleme hatası', not_found: 'Tefsir bulunamadı',
+                translated_from_ar: 'Arapçadan çevrildi (Google Translate)',
+                translated_from_en: 'İngilizceden çevrildi (Google Translate)',
+                original_ar: 'Arapça orijinal',
+                original_en: 'İngilizce orijinal',
+                show_original: 'Orijinali göster',
+                hide_original: 'Orijinali gizle',
+                translating: 'Çevriliyor…',
+            },
+        };
+
+        // ========================
+        // INIT
+        // ========================
+        const tg = window.Telegram?.WebApp;
+        if (tg) { tg.ready(); tg.expand(); }
+
+        function parseParams() {
+            const params = new URLSearchParams(window.location.search);
+            state.surah = parseInt(params.get('surah')) || 1;
+            state.ayah = parseInt(params.get('ayah')) || 1;
+            state.lang = params.get('lang') || 'ru';
+            if (state.surah < 1 || state.surah > 114) state.surah = 1;
+            if (state.ayah < 1) state.ayah = 1;
+            if (!['ru', 'en', 'tr'].includes(state.lang)) state.lang = 'ru';
+        }
+
+        // ========================
+        // SECTION TOGGLE
+        // ========================
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('collapsed');
+        }
+
+        // ========================
+        // ORIGINAL TEXT TOGGLE
+        // ========================
+        function toggleOriginal(source) {
+            const origEl = document.getElementById(source + '-original');
+            const btnEl = document.getElementById(source + '-orig-btn');
+            const strings = i18n[state.lang] || i18n.ru;
+            if (origEl.classList.contains('visible')) {
+                origEl.classList.remove('visible');
+                btnEl.querySelector('[data-i18n]').textContent = strings.show_original;
+            } else {
+                origEl.classList.add('visible');
+                btnEl.querySelector('[data-i18n]').textContent = strings.hide_original;
+            }
+        }
+
+        // ========================
+        // LANGUAGE SWITCH
+        // ========================
+        function switchLang(lang) {
+            state.lang = lang;
+            updateLangTabs();
+            updateI18n();
+
+            // Show loading indication
+            const strings = i18n[lang] || i18n.ru;
+            document.getElementById('loading-text').textContent = strings.translating || 'Translating…';
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('loading').classList.remove('fade-out');
+            document.getElementById('app').style.display = 'none';
+
+            loadAyahFromAPI();
+            loadTafsir();
+
+            const url = new URL(window.location);
+            url.searchParams.set('lang', lang);
+            history.replaceState({}, '', url);
+        }
+
+        function updateLangTabs() {
+            document.querySelectorAll('.lang-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.lang === state.lang);
+            });
+        }
+
+        function updateI18n() {
+            const strings = i18n[state.lang] || i18n.ru;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (strings[key]) el.textContent = strings[key];
+            });
+            const flags = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
+            const flagEl = document.getElementById('trans-flag');
+            if (flagEl) flagEl.textContent = flags[state.lang] || '🌍';
+        }
+
+        // ========================
+        // NAVIGATION
+        // ========================
+        function navigate(direction) {
+            const target = direction === 'prev' ? state.nav.prev : state.nav.next;
+            if (!target) return;
+            state.surah = target.surah;
+            state.ayah = target.ayah;
+
+            const url = new URL(window.location);
+            url.searchParams.set('surah', state.surah);
+            url.searchParams.set('ayah', state.ayah);
+            history.replaceState({}, '', url);
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            loadAyahFromAPI();
+            loadTafsir();
+        }
+
+        // ========================
+        // QURAN API (Arabic + Translation)
+        // ========================
+        // Helper: fetch with ngrok-skip-browser-warning header
+        function apiFetch(url, opts = {}) {
+            opts.headers = Object.assign({
+                'ngrok-skip-browser-warning': 'true',
+                'Accept': 'application/json',
+            }, opts.headers || {});
+            return fetch(url, opts);
+        }
+
+        async function loadAyahFromAPI() {
+            const editions = { ru: 'ru.kuliev', en: 'en.sahih', tr: 'tr.diyanet' };
+            const edition = editions[state.lang] || 'ru.kuliev';
+            try {
+                const resp = await fetch(
+                    `https://api.alquran.cloud/v1/ayah/${state.surah}:${state.ayah}/editions/quran-unicode,${edition}`,
+                    { signal: AbortSignal.timeout(10000) }
+                );
+                const data = await resp.json();
+                if (data.code === 200 && data.data?.length >= 2) {
+                    state.arabicText = data.data[0].text;
+                    state.translationText = data.data[1].text;
+                    document.getElementById('arabic-text').textContent = state.arabicText;
+                    document.getElementById('translation-text').textContent = state.translationText;
+                }
+            } catch (e) {
+                console.error('Quran API error:', e);
+                document.getElementById('arabic-text').textContent = '...';
+                document.getElementById('translation-text').textContent = '...';
+            }
+        }
+
+        // ========================
+        // TAFSIR API (translated by server)
+        // ========================
+        async function loadTafsir() {
+            try {
+                const resp = await apiFetch(
+                    `${API_BASE}/api/tafsir?surah=${state.surah}&ayah=${state.ayah}&lang=${state.lang}`,
+                    { signal: AbortSignal.timeout(60000) }  // translation can be slow
+                );
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                const strings = i18n[state.lang] || i18n.ru;
+
+                // Header
+                document.getElementById('surah-name').textContent = data.surah_name || '';
+                document.getElementById('ayah-ref').textContent = `Surah ${data.surah_num}, Ayah ${data.ayah_num}`;
+                document.getElementById('current-ref').textContent = `${data.surah_num}:${data.ayah_num}`;
+
+                const totalChars = (data.qurtubi_length || 0) + (data.qushairi_length || 0);
+                document.getElementById('header-badge').textContent = `${totalChars.toLocaleString()} ${strings.chars}`;
+
+                // ── Qurtubi ──
+                const qEl = document.getElementById('qurtubi-text');
+                qEl.textContent = data.qurtubi || strings.not_found;
+                document.getElementById('qurtubi-meta').textContent =
+                    `${(data.qurtubi_length || 0).toLocaleString()} ${strings.chars}`;
+
+                // If the server translated, show translated version (not RTL)
+                // and offer "show original" button
+                const isTranslated = data.translated === true;
+                if (isTranslated && data.qurtubi && data.qurtubi.length > 10) {
+                    qEl.classList.remove('rtl');  // translated text is LTR
+                    document.getElementById('qurtubi-notice').style.display = 'flex';
+                    document.getElementById('qurtubi-notice-text').textContent = strings.translated_from_ar;
+
+                    // Put raw Arabic into original toggle
+                    if (data.qurtubi_raw) {
+                        document.getElementById('qurtubi-raw-text').textContent = data.qurtubi_raw;
+                        document.getElementById('qurtubi-orig-btn').style.display = 'inline-flex';
+                    }
+                } else {
+                    // Showing original Arabic — use RTL
+                    qEl.classList.add('rtl');
+                    document.getElementById('qurtubi-notice').style.display =
+                        data.qurtubi && data.qurtubi.length > 10 ? 'flex' : 'none';
+                    document.getElementById('qurtubi-notice-text').textContent = strings.original_ar;
+                    document.getElementById('qurtubi-orig-btn').style.display = 'none';
+                }
+                // Reset original toggle state
+                document.getElementById('qurtubi-original').classList.remove('visible');
+
+                // ── Qushairi ──
+                const qsEl = document.getElementById('qushairi-text');
+                qsEl.textContent = data.qushairi || strings.not_found;
+                qsEl.classList.remove('rtl');
+                document.getElementById('qushairi-meta').textContent =
+                    `${(data.qushairi_length || 0).toLocaleString()} ${strings.chars}`;
+
+                if (isTranslated && state.lang !== 'en' && data.qushairi && data.qushairi.length > 10) {
+                    document.getElementById('qushairi-notice').style.display = 'flex';
+                    document.getElementById('qushairi-notice-text').textContent = strings.translated_from_en;
+                    if (data.qushairi_raw) {
+                        document.getElementById('qushairi-raw-text').textContent = data.qushairi_raw;
+                        document.getElementById('qushairi-orig-btn').style.display = 'inline-flex';
+                    }
+                } else {
+                    document.getElementById('qushairi-notice').style.display =
+                        data.qushairi && data.qushairi.length > 10 ? 'flex' : 'none';
+                    document.getElementById('qushairi-notice-text').textContent = strings.original_en;
+                    document.getElementById('qushairi-orig-btn').style.display = 'none';
+                }
+                document.getElementById('qushairi-original').classList.remove('visible');
+
+                // Navigation
+                state.nav = data.nav || { prev: null, next: null };
+
+                showApp();
+            } catch (e) {
+                console.error('Tafsir API error:', e);
+                showError(e.message);
+            }
+        }
+
+        // ========================
+        // UI HELPERS
+        // ========================
+        function showApp() {
+            const loading = document.getElementById('loading');
+            const app = document.getElementById('app');
+            const error = document.getElementById('error-state');
+            loading.classList.add('fade-out');
+            setTimeout(() => { loading.style.display = 'none'; }, 500);
+            app.style.display = 'block';
+            error.style.display = 'none';
+        }
+
+        function showError(msg) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('error-state').style.display = 'block';
+            const strings = i18n[state.lang] || i18n.ru;
+            document.getElementById('error-msg').textContent = strings.error;
+            document.getElementById('error-detail').textContent = msg;
+        }
+
+        // ========================
+        // BOOT
+        // ========================
+        parseParams();
+        updateLangTabs();
+        updateI18n();
+
+        // Update loading text to user's language
+        const bootStrings = i18n[state.lang] || i18n.ru;
+        document.getElementById('loading-text').textContent = bootStrings.loading;
+
+        loadAyahFromAPI();
+        loadTafsir();
+    </script>
+
+</body>
+</html>

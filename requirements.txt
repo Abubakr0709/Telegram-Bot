@@ -2,17 +2,20 @@
 # 🤖 TELEGRAM BOT DEPENDENCIES
 # ========================
 
-# Telegram Bot API
-python-telegram-bot==20.7
-
-# HTTP Requests (Quran API, Hadith API)
+python-telegram-bot==22.6
 requests==2.31.0
-
-# Yandex Free Translation (no API key needed)
-yandexfreetranslate
-
-# Scheduling
 APScheduler==3.10.4
-
-# Timezone Support
 pytz==2023.3
+
+# ========================
+# 🌐 TRANSLATION (Google via deep-translator)
+# ========================
+
+deep-translator==1.11.4
+
+# ========================
+# 🌐 WEB APP (Mini App)
+# ========================
+
+Flask==3.1.0
+flask-cors==5.0.1
