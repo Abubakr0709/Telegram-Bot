@@ -40,7 +40,7 @@ WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://127.0.0.1:5000")
 
 # Flask server settings (runs inside main.py alongside the bot)
 FLASK_HOST = os.environ.get("FLASK_HOST", "0.0.0.0")
-FLASK_PORT = int(os.environ.get("FLASK_PORT", "5000"))
+FLASK_PORT = int(os.environ.get("PORT", os.environ.get("FLASK_PORT", "5000")))
 
 # ========================
 # ⏰ SCHEDULE SETTINGS
