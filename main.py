@@ -7,8 +7,8 @@
 Runs BOTH the Telegram bot AND the Flask web server
 in a single process so one `python main.py` starts everything.
 
-Translation: deep-translator (Google Translate) with disk cache.
-Full i18n: every bot message adapts to the user's chosen language.
+Translation: deep-translator (Google Translate, free) with disk cache.
+Russian-only bot — all UI is in Russian, only the ayah text is in Arabic.
 """
 
 import asyncio
@@ -37,7 +37,6 @@ from config import (
     BOT_TOKEN,
     CHAT_ID,
     SCHEDULE_TIMES,
-    AVAILABLE_TRANSLATIONS,
     QURAN_API_BASE,
     HADITH_API_BASE,
     HADITH_SECTIONS,
@@ -97,11 +96,10 @@ _STRINGS = {
             "  • Аят + тафсир + хадис каждый день\n"
             "  • 📖 Mini App для полного тафсира\n"
             "  • ⏰ Личные напоминания\n"
-            "  • 🇷🇺 🇬🇧 🇹🇷 Перевод (Google)\n"
+            "  • 🇷🇺 Перевод на русский\n"
             "  • ⬅️ ➡️ Навигация по аятам\n"
-            "  • � Обзор сур · 🔖 Закладки\n\n"
+            "  • 📚 Обзор сур · 🔖 Закладки\n\n"
             "🎮 <b>Команды:</b>\n"
-            "/now — Аят прямо сейчас\n"
             "/surah — Обзор всех сур\n"
             "/surah 18 — Случайный аят из суры\n"
             "/hadith — Случайный хадис\n"
@@ -159,177 +157,7 @@ _STRINGS = {
             "💭 Аллах не обременяет душу сверх её возможностей.",
             "💭 Пусть сегодняшний аят станет проводником на весь день.",
         ],
-    },
-    "en": {
-        "title": "QURAN & TAFSIR",
-        "arabic_label": "Arabic Text",
-        "translation_label": "Translation",
-        "hadith_label": "Hadith of the Day",
-        "tafsir_btn": "📖 Read Full Tafsir",
-        "bookmark_btn": "🔖 Bookmark",
-        "more_hadith": "🔄 Another hadith",
-        "translate_btn": "🌐 Translate",
-        "surah_word": "Surah",
-        "ayah_word": "Ayah",
-        "full_tafsir_hint": "👇 Tap the button below for full tafsir",
-        "blessing": "🤲 May Allah bless you with knowledge.",
-        "loading": "📖 Loading ayah… ✨",
-        "load_error": "❌ Failed to load. Try again.",
-        "welcome": (
-            "✨ <b>As-salamu alaykum!</b> ✨\n\n"
-            "Welcome to the <b>Quran & Tafsir Bot</b>! 🕌\n\n"
-            "📅 <b>Features:</b>\n"
-            "  • Daily ayah + tafsir + hadith\n"
-            "  • 📖 Mini App for full tafsir\n"
-            "  • ⏰ Personal reminders\n"
-            "  • 🇷🇺 🇬🇧 🇹🇷 Translation (Google)\n"
-            "  • ⬅️ ➡️ Ayah navigation\n"
-            "  • � Surah browser · 🔖 Bookmarks\n\n"
-            "🎮 <b>Commands:</b>\n"
-            "/now — Random ayah now\n"
-            "/surah — Browse all surahs\n"
-            "/surah 18 — Random ayah from surah\n"
-            "/hadith — Random hadith\n"
-            "/remind 08:30 — Add reminder\n"
-            "/reminders — My reminders\n"
-            "/bookmark 2:255 — Bookmark\n"
-            "/bookmarks — My bookmarks\n\n"
-            "🤲 <i>May this bot bring you closer to the words of Allah.</i>"
-        ),
-        "streak_days": "d",
-        "streak_label": "Streak",
-        "qurtubi_excerpt": "Tafsir al-Qurtubi (excerpt)",
-        "qushairi_excerpt": "Tafsir al-Qushairi (excerpt)",
-        "full_text_hint": "👇 Full text — button below",
-        "hadith_title": "📿 <b>Hadith</b>",
-        "surah_title": "📚 <b>Surah Browser</b>",
-        "surah_page": "Page {page}/{total}",
-        "surah_usage": "📌 <code>/surah 18</code> — random ayah from surah",
-        "surah_not_found": "❌ Surah not found. Enter a number 1–114.",
-        "surah_random_from": "🎲 Random ayah from Surah {name}",
-        "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
-        "bookmark_bad": "❌ Format: <code>/bookmark 2:255</code>",
-        "bookmark_added": "✅ <b>Bookmarked:</b> {name} — {ref}",
-        "bookmark_dup": "📌 Already bookmarked!",
-        "bookmarks_empty": "📌 No bookmarks yet. <code>/bookmark 2:255</code>",
-        "bookmarks_title": "🔖 <b>Your bookmarks:</b>",
-        "remind_help": (
-            "⏰ <b>Usage:</b>\n\n"
-            "<code>/remind 08:30</code> — random ayah\n"
-            "<code>/remind 08:30 2:255</code> — specific ayah\n"
-            "<code>/remind 08:30 Morning</code> — with label\n\n"
-            "Delete: /reminders → /delremind number"
-        ),
-        "remind_bad_time": "❌ Format: <code>HH:MM</code>",
-        "remind_dup": "⚠️ Already have a reminder at {t}.",
-        "remind_ok": "✅ <b>Reminder:</b> {t}  •  {desc}\n/reminders",
-        "random_ayah": "random ayah",
-        "reminders_empty": "⏰ No reminders. <code>/remind 08:30</code>",
-        "reminders_title": "⏰ <b>Your reminders:</b>",
-        "delremind_help": "<code>/delremind 1</code> or <code>/delremind all</code>",
-        "deleted_n": "🗑️ Deleted: {n}.",
-        "deleted_ok": "✅ #{i} deleted.",
-        "deleted_bad": "❌ No #{i}. /reminders",
-        "reminder_msg": "⏰ <b>Reminder</b>",
-        "msg_truncated": "\n\n⚠️ <i>Message truncated.</i>",
-        "reflections": [
-            "💭 Every ayah is a message meant for you at this very moment.",
-            "💭 The Quran is a mirror of the soul. What do you see today?",
-            "💭 True knowledge comes through reflection.",
-            "💭 May every word of Allah illuminate your path.",
-            "💭 Patience and gratitude — the two wings of a believer.",
-            "💭 Every day is a chance to draw closer to Allah.",
-            "💭 The wisdom of the Quran reveals itself to those who seek with their heart.",
-            "💭 In the silence of contemplation, understanding is born.",
-            "💭 Allah does not burden a soul beyond its capacity.",
-            "💭 May today's ayah be a guiding light for your entire day.",
-        ],
-    },
-    "tr": {
-        "title": "KUR'AN VE TEFSİR",
-        "arabic_label": "Arapça Metin",
-        "translation_label": "Çeviri",
-        "hadith_label": "Günün Hadisi",
-        "tafsir_btn": "📖 Tam Tefsiri Oku",
-        "bookmark_btn": "🔖 Yer İmi",
-        "more_hadith": "🔄 Başka hadis",
-        "translate_btn": "🌐 Çevir",
-        "surah_word": "Sure",
-        "ayah_word": "Ayet",
-        "full_tafsir_hint": "👇 Tam tefsir için aşağıdaki düğmeye basın",
-        "blessing": "🤲 Allah sizi ilimle mübarek kılsın.",
-        "loading": "📖 Ayet yükleniyor… ✨",
-        "load_error": "❌ Yükleme hatası. Tekrar deneyin.",
-        "welcome": (
-            "✨ <b>Es-selamu aleyküm!</b> ✨\n\n"
-            "<b>Kur'an ve Tefsir Bot</b>'a hoş geldiniz! 🕌\n\n"
-            "📅 <b>Özellikler:</b>\n"
-            "  • Günlük ayet + tefsir + hadis\n"
-            "  • 📖 Tam tefsir için Mini App\n"
-            "  • ⏰ Kişisel hatırlatmalar\n"
-            "  • 🇷🇺 🇬🇧 🇹🇷 Çeviri (Google)\n"
-            "  • ⬅️ ➡️ Ayet navigasyonu\n"
-            "  • � Sure tarayıcı · 🔖 Yer İmleri\n\n"
-            "🎮 <b>Komutlar:</b>\n"
-            "/now — Şimdi rastgele ayet\n"
-            "/surah — Tüm surelere göz at\n"
-            "/surah 18 — Sureden rastgele ayet\n"
-            "/hadith — Rastgele hadis\n"
-            "/remind 08:30 — Hatırlatma ekle\n"
-            "/reminders — Hatırlatmalarım\n"
-            "/bookmark 2:255 — Yer imi\n"
-            "/bookmarks — Yer imlerim\n\n"
-            "🤲 <i>Bu bot sizi Allah'ın sözlerine yaklaştırsın.</i>"
-        ),
-        "streak_days": "g",
-        "streak_label": "Seri",
-        "qurtubi_excerpt": "Kurtubi Tefsiri (alıntı)",
-        "qushairi_excerpt": "Kuşeyri Tefsiri (alıntı)",
-        "full_text_hint": "👇 Tam metin — aşağıdaki düğme",
-        "hadith_title": "📿 <b>Hadis</b>",
-        "surah_title": "📚 <b>Sure Tarayıcı</b>",
-        "surah_page": "Sayfa {page}/{total}",
-        "surah_usage": "📌 <code>/surah 18</code> — sureden rastgele ayet",
-        "surah_not_found": "❌ Sure bulunamadı. 1–114 arası bir sayı girin.",
-        "surah_random_from": "🎲 {name} suresinden rastgele ayet",
-        "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
-        "bookmark_bad": "❌ Format: <code>/bookmark 2:255</code>",
-        "bookmark_added": "✅ <b>Yer imi:</b> {name} — {ref}",
-        "bookmark_dup": "📌 Zaten yer imlerinde!",
-        "bookmarks_empty": "📌 Yer imi yok. <code>/bookmark 2:255</code>",
-        "bookmarks_title": "🔖 <b>Yer imleriniz:</b>",
-        "remind_help": (
-            "⏰ <b>Kullanım:</b>\n\n"
-            "<code>/remind 08:30</code> — rastgele ayet\n"
-            "<code>/remind 08:30 2:255</code> — belirli ayet\n"
-            "<code>/remind 08:30 Sabah</code> — etiketli\n\n"
-            "Sil: /reminders → /delremind numara"
-        ),
-        "remind_bad_time": "❌ Format: <code>HH:MM</code>",
-        "remind_dup": "⚠️ {t} için zaten hatırlatma var.",
-        "remind_ok": "✅ <b>Hatırlatma:</b> {t}  •  {desc}\n/reminders",
-        "random_ayah": "rastgele ayet",
-        "reminders_empty": "⏰ Hatırlatma yok. <code>/remind 08:30</code>",
-        "reminders_title": "⏰ <b>Hatırlatmalarınız:</b>",
-        "delremind_help": "<code>/delremind 1</code> veya <code>/delremind all</code>",
-        "deleted_n": "🗑️ Silindi: {n}.",
-        "deleted_ok": "✅ #{i} silindi.",
-        "deleted_bad": "❌ #{i} yok. /reminders",
-        "reminder_msg": "⏰ <b>Hatırlatma</b>",
-        "msg_truncated": "\n\n⚠️ <i>Mesaj kısaltıldı.</i>",
-        "reflections": [
-            "💭 Her ayet tam bu an size gönderilen bir mesajdır.",
-            "💭 Kur'an ruhun aynasıdır. Bugün ne görüyorsunuz?",
-            "💭 Gerçek bilgi tefekkür ile gelir.",
-            "💭 Allah'ın her sözü yolunuzu aydınlatsın.",
-            "💭 Sabır ve şükür — müminin iki kanadı.",
-            "💭 Her gün Allah'a yaklaşmak için bir fırsattır.",
-            "💭 Kur'an'ın hikmeti kalbiyle arayanlara açılır.",
-            "💭 Tefekkürün sessizliğinde anlayış doğar.",
-            "💭 Allah hiçbir nefse taşıyamayacağı yükü yüklemez.",
-            "💭 Bugünkü ayet tüm gününüze rehber olsun.",
-        ],
-    },
+    }
 }
 
 
@@ -346,7 +174,7 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _CACHE_FILE = os.path.join(_BASE_DIR, "translation_cache.json")
 _cache: dict = {}
 _cache_lock = threading.Lock()
-_LANG_MAP = {"ru": "ru", "en": "en", "tr": "tr", "ar": "ar"}
+_LANG_MAP = {"ru": "ru", "ar": "ar", "en": "en"}
 
 
 def _load_cache():
@@ -544,11 +372,6 @@ def _build_ayah_keyboard(surah: int, ayah: int, lang: str) -> InlineKeyboardMark
                 web_app=WebAppInfo(url=_webapp_url(surah, ayah, lang)),
             ),
         ],
-        [
-            InlineKeyboardButton(label, callback_data=f"lang_{code}_{surah}_{ayah}")
-            for code, label in AVAILABLE_TRANSLATIONS.items()
-            if code != lang
-        ],
         [InlineKeyboardButton(s["bookmark_btn"], callback_data=f"bmark_{surah}_{ayah}")],
     ])
 
@@ -557,7 +380,6 @@ def _build_hadith_keyboard(lang: str) -> InlineKeyboardMarkup:
     s = S(lang)
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(s["more_hadith"], callback_data="another_hadith"),
-        InlineKeyboardButton(s["translate_btn"], callback_data="translate_hadith"),
     ]])
 
 
@@ -567,7 +389,7 @@ def format_ayah_compact(ayah_data: dict, hadith: dict | None,
     s_ar = get_surah_name(ayah_data["surah_num"])
     s_en = ayah_data.get("surah_en", "")
     su, ay = ayah_data["surah_num"], ayah_data["ayah"]
-    flag = {"ru": "🇷🇺", "en": "🇬🇧", "tr": "🇹🇷"}.get(lang, "🌍")
+    flag = "🇷🇺"
     streak_line = f"\n{_streak_emoji(streak, lang)}" if streak > 0 else ""
 
     msg = (
@@ -608,7 +430,7 @@ def format_ayah_full(ayah_data: dict, qurtubi: str, qushairi: str,
     s_ar = get_surah_name(ayah_data["surah_num"])
     s_en = ayah_data.get("surah_en", "")
     su, ay = ayah_data["surah_num"], ayah_data["ayah"]
-    flag = {"ru": "🇷🇺", "en": "🇬🇧", "tr": "🇹🇷"}.get(lang, "🌍")
+    flag = "🇷🇺"
 
     q = translate_text(qurtubi, lang, "ar") if lang != "ar" else qurtubi
     qs = translate_text(qushairi, lang, "en") if lang != "en" else qushairi
@@ -681,27 +503,6 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lang = user_data.get_language(uid)
     s = S(lang)
     await update.message.reply_text(s["welcome"], parse_mode="HTML")
-
-
-async def cmd_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    streak = user_data.get_streak(uid)["current"]
-
-    wait = await update.message.reply_text(s["loading"])
-    data = fetch_random_ayah(lang)
-    if not data:
-        await wait.edit_text(s["load_error"])
-        return
-
-    su, ay = data["surah_num"], data["ayah"]
-    hadith = fetch_random_hadith()
-    user_data.mark_ayah_read(uid, su, ay)
-
-    msg = format_ayah_compact(data, hadith, lang, streak)
-    kb = _build_ayah_keyboard(su, ay, lang)
-    await _safe_send(wait, msg, keyboard=kb, lang=lang)
 
 
 async def cmd_surah(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -861,16 +662,6 @@ async def cmd_times(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
-async def cmd_lang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    cur = user_data.get_language(uid)
-    kb = [[InlineKeyboardButton(
-        f"{lb}{' ✅' if c == cur else ''}", callback_data=f"setlang_{c}")]
-        for c, lb in AVAILABLE_TRANSLATIONS.items()]
-    await update.message.reply_text(
-        f"🌍 <b>{AVAILABLE_TRANSLATIONS.get(cur, cur)}</b>",
-        parse_mode="HTML", reply_markup=InlineKeyboardMarkup(kb))
-
 
 # ═══════════════════════════════════════════
 # ⏰  REMINDER COMMANDS (localised)
@@ -975,18 +766,12 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     if d.startswith("nav_"):
         await _cb_nav(query)
-    elif d.startswith("lang_"):
-        await _cb_lang(query)
-    elif d.startswith("setlang_"):
-        await _cb_setlang(query)
     elif d.startswith("bmark_"):
         await _cb_bookmark(query)
     elif d.startswith("surahp_"):
         await _cb_surah_page(query)
     elif d == "another_hadith":
         await _cb_hadith(query)
-    elif d == "translate_hadith":
-        await _cb_translate_hadith(query)
     else:
         await query.answer("❓")
 
@@ -1008,41 +793,6 @@ async def _cb_nav(query):
     msg = format_ayah_compact(data, None, lang, streak)
     kb = _build_ayah_keyboard(su, ay, lang)
     await _safe_send(query, msg, keyboard=kb, lang=lang)
-
-
-async def _cb_lang(query):
-    """Language button on an ayah message — switch lang, save preference, re-render."""
-    await query.answer()
-    try:
-        p = query.data.split("_")
-        lang, su, ay = p[1], int(p[2]), int(p[3])
-    except Exception:
-        return
-    uid = query.from_user.id
-    # Save the new language preference
-    user_data.set_language(uid, lang)
-    streak = user_data.get_streak(uid)["current"]
-    data = fetch_ayah_text(su, ay, lang)
-    if not data:
-        await query.answer("❌")
-        return
-    msg = format_ayah_compact(data, None, lang, streak)
-    kb = _build_ayah_keyboard(su, ay, lang)
-    await _safe_send(query, msg, keyboard=kb, lang=lang)
-
-
-async def _cb_setlang(query):
-    lang = query.data.replace("setlang_", "")
-    uid = query.from_user.id
-    user_data.set_language(uid, lang)
-    lb = AVAILABLE_TRANSLATIONS.get(lang, lang)
-    await query.answer(f"✅ {lb}")
-    kb = [[InlineKeyboardButton(
-        f"{l}{' ✅' if c == lang else ''}", callback_data=f"setlang_{c}")]
-        for c, l in AVAILABLE_TRANSLATIONS.items()]
-    await query.edit_message_text(
-        f"🌍 <b>{lb}</b>", parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(kb))
 
 
 async def _cb_bookmark(query):
@@ -1081,20 +831,6 @@ async def _cb_hadith(query):
     txt = _translate_hadith(h["text"], lang)
     msg = f"{s['hadith_title']}\n\n<i>{txt}</i>\n\n📖 <i>{h['reference']}</i>"
     await _safe_send(query, msg, keyboard=_build_hadith_keyboard(lang), lang=lang)
-
-
-async def _cb_translate_hadith(query):
-    await query.answer()
-    orig = query.message.text or ""
-    if not orig:
-        return
-    en = translate_text(orig, "en", "auto")
-    tr = translate_text(orig, "tr", "auto")
-    msg = f"🇬🇧 <b>English:</b>\n{en}\n\n🇹🇷 <b>Türkçe:</b>\n{tr}"
-    try:
-        await query.message.reply_text(msg, parse_mode="HTML")
-    except Exception:
-        await query.message.reply_text(msg[:4000], parse_mode="HTML")
 
 
 # ═══════════════════════════════════════════
@@ -1146,7 +882,7 @@ async def send_reminder_message(app: Application, uid: int,
         label_line = f"\n📝 <i>{label}</i>" if label else ""
         s_ar = get_surah_name(su)
         s_en = data.get("surah_en", "")
-        flag = {"ru": "🇷🇺", "en": "🇬🇧", "tr": "🇹🇷"}.get(lang, "🌍")
+        flag = "🇷🇺"
         msg = (
             f"{s['reminder_msg']}{label_line}\n\n"
             f"🕌 <b>{s_ar} ({s_en})</b>  •  {su}:{ay}\n\n"
@@ -1284,18 +1020,9 @@ def api_tafsir():
     raw_qurtubi = get_full_tafsir(surah, ayah, "qurtubi")
     raw_qushairi = get_full_tafsir(surah, ayah, "qushairi")
 
-    if lang == "ar":
-        t_qurtubi = raw_qurtubi
-        t_qushairi = translate_text(raw_qushairi, "ar", "en")
-    elif lang == "en":
-        t_qurtubi = translate_text(raw_qurtubi, "en", "ar")
-        t_qushairi = raw_qushairi
-    elif lang == "tr":
-        t_qurtubi = translate_text(raw_qurtubi, "tr", "ar")
-        t_qushairi = translate_text(raw_qushairi, "tr", "en")
-    else:
-        t_qurtubi = translate_text(raw_qurtubi, "ru", "ar")
-        t_qushairi = translate_text(raw_qushairi, "ru", "en")
+    # Always translate to Russian (bot is Russian-only)
+    t_qurtubi = translate_text(raw_qurtubi, "ru", "ar")
+    t_qushairi = translate_text(raw_qushairi, "ru", "en")
 
     ps, pa = get_prev_ayah(surah, ayah)
     ns, na = get_next_ayah(surah, ayah)
@@ -1355,14 +1082,12 @@ async def main():
     _bot_app = app
 
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("now", cmd_now))
     app.add_handler(CommandHandler("surah", cmd_surah))
     app.add_handler(CommandHandler("hadith", cmd_hadith))
     app.add_handler(CommandHandler("bookmark", cmd_bookmark))
     app.add_handler(CommandHandler("bookmarks", cmd_bookmarks))
     app.add_handler(CommandHandler("progress", cmd_progress))
     app.add_handler(CommandHandler("times", cmd_times))
-    app.add_handler(CommandHandler("lang", cmd_lang))
     app.add_handler(CommandHandler("remind", cmd_remind))
     app.add_handler(CommandHandler("reminders", cmd_reminders))
     app.add_handler(CommandHandler("delremind", cmd_delremind))
@@ -1405,15 +1130,13 @@ async def main():
     # ── Set the bot's command menu (the buttons users see) ──
     from telegram import BotCommand
     await app.bot.set_my_commands([
-        BotCommand("now", "Random ayah / Случайный аят"),
-        BotCommand("surah", "Browse surahs / Обзор сур"),
-        BotCommand("hadith", "Random hadith / Хадис"),
-        BotCommand("remind", "Add reminder / Напоминание"),
-        BotCommand("reminders", "My reminders / Мои напоминания"),
-        BotCommand("bookmark", "Bookmark ayah / Закладка"),
-        BotCommand("bookmarks", "My bookmarks / Закладки"),
-        BotCommand("lang", "Change language / Язык"),
-        BotCommand("start", "Welcome / Начало"),
+        BotCommand("surah", "Обзор сур"),
+        BotCommand("hadith", "Случайный хадис"),
+        BotCommand("remind", "Добавить напоминание"),
+        BotCommand("reminders", "Мои напоминания"),
+        BotCommand("bookmark", "Закладка аята"),
+        BotCommand("bookmarks", "Мои закладки"),
+        BotCommand("start", "Начало"),
     ])
     logger.info("📋 Bot menu commands updated")
 

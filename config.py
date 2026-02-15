@@ -61,14 +61,10 @@ DEFAULT_TRANSLATION = "ru.kuliev"
 
 AVAILABLE_TRANSLATIONS = {
     "ru": "🇷🇺 Русский",
-    "en": "🇬🇧 English",
-    "tr": "🇹🇷 Türkçe",
 }
 
 QURAN_EDITIONS = {
     "ru": "ru.kuliev",
-    "en": "en.sahih",
-    "tr": "tr.diyanet",
 }
 
 # ========================

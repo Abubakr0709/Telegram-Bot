@@ -7,7 +7,7 @@
 - 📖 **Telegram Mini App** — View full tafsir (al-Qurtubi + al-Qushairi) without 4096-char message limits
 - ⏰ **Personal Reminders** — Set daily reminders for any ayah at any time
 - 📅 **Auto-scheduled Messages** — 10 daily ayah messages automatically
-- 🌍 **Multi-language** — Russian, English, Turkish (Yandex translation)
+- �🇺 **Russian-only** — All UI in Russian, Google Translate for hadith/tafsir
 - 🔖 **Bookmarks & Progress** — Track your reading journey
 - 🔥 **Streaks** — Daily reading streak tracking
 - ⬅️➡️ **Navigation** — Browse ayahs with inline buttons
@@ -48,29 +48,27 @@ This single command starts:
 | Command | Description |
 |---------|-------------|
 | `/start` | Welcome message with feature overview |
-| `/now` | Get a random ayah right now |
-| `/ayah 2:255` | Get a specific ayah (e.g., Ayat al-Kursi) |
+| `/surah` | Browse all 114 surahs |
+| `/surah 18` | Random ayah from a specific surah |
 | `/hadith` | Random Sahih Bukhari hadith |
 | `/remind 08:30` | Daily reminder at 08:30 (random ayah) |
 | `/remind 08:30 2:255` | Daily reminder for specific ayah |
 | `/reminders` | List all your reminders |
 | `/delremind 1` | Delete reminder #1 |
-| `/search mercy` | Search tafsir for keywords |
 | `/bookmark 2:255` | Add ayah to bookmarks |
 | `/bookmarks` | List your bookmarks |
 | `/progress` | View reading stats & streak |
 | `/times` | Show auto-schedule times |
-| `/lang` | Change language (RU/EN/TR) |
 
 ## Mini App (Web Tafsir)
 
 Every ayah message has a **"📖 Читать полный Тафсир"** button that opens a beautiful mobile-optimized web view inside Telegram showing:
 
 - Full Arabic ayah text with proper typography
-- Translation in your language
-- Complete Tafsir al-Qurtubi (classical Arabic commentary)
-- Complete Tafsir al-Qushairi (English spiritual commentary)
-- Collapsible sections, language switcher, ayah navigation
+- Russian translation (ru.kuliev)
+- Complete Tafsir al-Qurtubi (translated to Russian)
+- Complete Tafsir al-Qushairi (translated to Russian)
+- Collapsible sections, ayah navigation
 
 **No 4096-character message limit!**
 
@@ -130,7 +128,7 @@ The embedded Flask server provides:
 - **python-telegram-bot** 20.7 — Telegram Bot API
 - **Flask** 3.1.0 — Web server for Mini App
 - **APScheduler** 3.10.4 — Scheduled messages & reminders
-- **yandexfreetranslate** — Free translation (no API key)
+- **deep-translator** 1.11.4 — Google Translate (free, no API key)
 - Local JSON tafsir data (no external APIs)
 
 ## License

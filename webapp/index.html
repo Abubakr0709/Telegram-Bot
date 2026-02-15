@@ -106,16 +106,6 @@
         .nav-btn:hover,.nav-btn:active { background: var(--bg-card-hover); color: var(--gold-light); border-color: var(--border-gold); }
         .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* LANG TABS */
-        .lang-tabs { display: flex; gap: 6px; margin-bottom: 20px; padding: 4px; background: var(--bg-secondary); border-radius: var(--radius); }
-        .lang-tab {
-            flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 500;
-            color: var(--text-muted); background: transparent; border: none;
-            border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-family: var(--font-body);
-        }
-        .lang-tab.active { background: var(--bg-card); color: var(--gold-light); box-shadow: 0 2px 8px var(--shadow); }
-        .lang-tab:hover:not(.active) { color: var(--text-secondary); }
-
         /* SECTIONS */
         .section {
             margin-bottom: 16px; background: var(--bg-card);
@@ -228,12 +218,6 @@
             <button class="nav-btn" id="next-btn" onclick="navigate('next')">
                 <span data-i18n="next">След.</span> <span>➡️</span>
             </button>
-        </div>
-
-        <div class="lang-tabs">
-            <button class="lang-tab" data-lang="ru" onclick="switchLang('ru')">🇷🇺 Русский</button>
-            <button class="lang-tab" data-lang="en" onclick="switchLang('en')">🇬🇧 English</button>
-            <button class="lang-tab" data-lang="tr" onclick="switchLang('tr')">🇹🇷 Türkçe</button>
         </div>
 
         <!-- Arabic Ayah -->
@@ -354,32 +338,6 @@
                 hide_original: 'Скрыть оригинал',
                 translating: 'Переводится…',
             },
-            en: {
-                prev: 'Prev.', next: 'Next',
-                arabic_text: 'Arabic Text', translation: 'Translation',
-                chars: 'chars', loading: 'Loading tafsir...',
-                error: 'Load error', not_found: 'Tafsir not found',
-                translated_from_ar: 'Translated from Arabic (Google Translate)',
-                translated_from_en: 'Original English text',
-                original_ar: 'Original Arabic',
-                original_en: 'Original English',
-                show_original: 'Show original',
-                hide_original: 'Hide original',
-                translating: 'Translating…',
-            },
-            tr: {
-                prev: 'Önceki', next: 'Sonraki',
-                arabic_text: 'Arapça Metin', translation: 'Çeviri',
-                chars: 'karakter', loading: 'Tefsir yükleniyor...',
-                error: 'Yükleme hatası', not_found: 'Tefsir bulunamadı',
-                translated_from_ar: 'Arapçadan çevrildi (Google Translate)',
-                translated_from_en: 'İngilizceden çevrildi (Google Translate)',
-                original_ar: 'Arapça orijinal',
-                original_en: 'İngilizce orijinal',
-                show_original: 'Orijinali göster',
-                hide_original: 'Orijinali gizle',
-                translating: 'Çevriliyor…',
-            },
         };
 
         // ========================
@@ -395,7 +353,7 @@
             state.lang = params.get('lang') || 'ru';
             if (state.surah < 1 || state.surah > 114) state.surah = 1;
             if (state.ayah < 1) state.ayah = 1;
-            if (!['ru', 'en', 'tr'].includes(state.lang)) state.lang = 'ru';
+            state.lang = 'ru';  // Russian-only
         }
 
         // ========================
@@ -412,7 +370,7 @@
         function toggleOriginal(source) {
             const origEl = document.getElementById(source + '-original');
             const btnEl = document.getElementById(source + '-orig-btn');
-            const strings = i18n[state.lang] || i18n.ru;
+            const strings = i18n.ru;
             if (origEl.classList.contains('visible')) {
                 origEl.classList.remove('visible');
                 btnEl.querySelector('[data-i18n]').textContent = strings.show_original;
@@ -423,53 +381,16 @@
         }
 
         // ========================
-        // LANGUAGE SWITCH
+        // I18N UPDATE
         // ========================
-        function switchLang(lang) {
-            state.lang = lang;
-            updateLangTabs();
-            updateI18n();
-
-            // Show loading indication
-            const strings = i18n[lang] || i18n.ru;
-            document.getElementById('loading-text').textContent = strings.translating || 'Translating…';
-            document.getElementById('loading').style.display = 'flex';
-            document.getElementById('loading').classList.remove('fade-out');
-            document.getElementById('app').style.display = 'none';
-
-            // FIX: Coordinate both async calls with Promise.all so the app
-            //      only shows after BOTH the ayah and tafsir have loaded.
-            //      Previously these ran as fire-and-forget, causing the ayah
-            //      text to be empty/stale when the loading screen was removed.
-            Promise.all([loadAyahFromAPI(), loadTafsir()])
-                .then(() => {
-                    showApp();
-                })
-                .catch(err => {
-                    console.error('Language switch error:', err);
-                    showError(err.message || 'Translation failed');
-                });
-
-            const url = new URL(window.location);
-            url.searchParams.set('lang', lang);
-            history.replaceState({}, '', url);
-        }
-
-        function updateLangTabs() {
-            document.querySelectorAll('.lang-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.dataset.lang === state.lang);
-            });
-        }
-
         function updateI18n() {
-            const strings = i18n[state.lang] || i18n.ru;
+            const strings = i18n.ru;
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.dataset.i18n;
                 if (strings[key]) el.textContent = strings[key];
             });
-            const flags = { ru: '🇷🇺', en: '🇬🇧', tr: '🇹🇷' };
             const flagEl = document.getElementById('trans-flag');
-            if (flagEl) flagEl.textContent = flags[state.lang] || '🌍';
+            if (flagEl) flagEl.textContent = '🇷🇺';
         }
 
         // ========================
@@ -488,9 +409,9 @@
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            // FIX: Use Promise.all to coordinate both async calls,
-            //      same pattern as switchLang to avoid race conditions.
-            const strings = i18n[state.lang] || i18n.ru;
+            // FIX: Use Promise.all to coordinate both async calls
+            //      to avoid race conditions.
+            const strings = i18n.ru;
             document.getElementById('loading-text').textContent = strings.loading;
             document.getElementById('loading').style.display = 'flex';
             document.getElementById('loading').classList.remove('fade-out');
@@ -517,8 +438,7 @@
         }
 
         async function loadAyahFromAPI() {
-            const editions = { ru: 'ru.kuliev', en: 'en.sahih', tr: 'tr.diyanet' };
-            const edition = editions[state.lang] || 'ru.kuliev';
+            const edition = 'ru.kuliev';
             try {
                 const resp = await fetch(
                     `https://api.alquran.cloud/v1/ayah/${state.surah}:${state.ayah}/editions/quran-unicode,${edition}`,
@@ -549,7 +469,7 @@
                 );
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
-                const strings = i18n[state.lang] || i18n.ru;
+                const strings = i18n.ru;
 
                 // Header
                 document.getElementById('surah-name').textContent = data.surah_name || '';
@@ -614,7 +534,7 @@
                 // Navigation
                 state.nav = data.nav || { prev: null, next: null };
 
-                // NOTE: showApp() is NOT called here — callers (switchLang,
+                // NOTE: showApp() is NOT called here — callers (navigate,
                 // navigate, boot) handle showing the app after all promises resolve.
             } catch (e) {
                 console.error('Tafsir API error:', e);
@@ -639,7 +559,7 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app').style.display = 'none';
             document.getElementById('error-state').style.display = 'block';
-            const strings = i18n[state.lang] || i18n.ru;
+            const strings = i18n.ru;
             document.getElementById('error-msg').textContent = strings.error;
             document.getElementById('error-detail').textContent = msg;
         }
@@ -648,11 +568,10 @@
         // BOOT
         // ========================
         parseParams();
-        updateLangTabs();
         updateI18n();
 
         // Update loading text to user's language
-        const bootStrings = i18n[state.lang] || i18n.ru;
+        const bootStrings = i18n.ru;
         document.getElementById('loading-text').textContent = bootStrings.loading;
 
         // FIX: Load both ayah and tafsir together, show app only when both complete
