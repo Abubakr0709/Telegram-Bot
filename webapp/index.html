@@ -437,8 +437,18 @@
             document.getElementById('loading').classList.remove('fade-out');
             document.getElementById('app').style.display = 'none';
 
-            loadAyahFromAPI();
-            loadTafsir();
+            // FIX: Coordinate both async calls with Promise.all so the app
+            //      only shows after BOTH the ayah and tafsir have loaded.
+            //      Previously these ran as fire-and-forget, causing the ayah
+            //      text to be empty/stale when the loading screen was removed.
+            Promise.all([loadAyahFromAPI(), loadTafsir()])
+                .then(() => {
+                    showApp();
+                })
+                .catch(err => {
+                    console.error('Language switch error:', err);
+                    showError(err.message || 'Translation failed');
+                });
 
             const url = new URL(window.location);
             url.searchParams.set('lang', lang);
@@ -477,8 +487,21 @@
             history.replaceState({}, '', url);
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            loadAyahFromAPI();
-            loadTafsir();
+
+            // FIX: Use Promise.all to coordinate both async calls,
+            //      same pattern as switchLang to avoid race conditions.
+            const strings = i18n[state.lang] || i18n.ru;
+            document.getElementById('loading-text').textContent = strings.loading;
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('loading').classList.remove('fade-out');
+            document.getElementById('app').style.display = 'none';
+
+            Promise.all([loadAyahFromAPI(), loadTafsir()])
+                .then(() => { showApp(); })
+                .catch(err => {
+                    console.error('Navigation error:', err);
+                    showError(err.message || 'Load failed');
+                });
         }
 
         // ========================
@@ -591,10 +614,11 @@
                 // Navigation
                 state.nav = data.nav || { prev: null, next: null };
 
-                showApp();
+                // NOTE: showApp() is NOT called here — callers (switchLang,
+                // navigate, boot) handle showing the app after all promises resolve.
             } catch (e) {
                 console.error('Tafsir API error:', e);
-                showError(e.message);
+                throw e;  // Re-throw so Promise.all callers can catch it
             }
         }
 
@@ -631,8 +655,13 @@
         const bootStrings = i18n[state.lang] || i18n.ru;
         document.getElementById('loading-text').textContent = bootStrings.loading;
 
-        loadAyahFromAPI();
-        loadTafsir();
+        // FIX: Load both ayah and tafsir together, show app only when both complete
+        Promise.all([loadAyahFromAPI(), loadTafsir()])
+            .then(() => { showApp(); })
+            .catch(err => {
+                console.error('Boot error:', err);
+                showError(err.message || 'Failed to load');
+            });
     </script>
 
 </body>

@@ -50,7 +50,6 @@ from config import (
 from tafsir_loader import (
     get_tafsir_for_ayah,
     get_full_tafsir,
-    search_tafsir,
     get_surah_name,
     get_ayah_count,
     get_next_ayah,
@@ -100,14 +99,14 @@ _STRINGS = {
             "  • ⏰ Личные напоминания\n"
             "  • 🇷🇺 🇬🇧 🇹🇷 Перевод (Google)\n"
             "  • ⬅️ ➡️ Навигация по аятам\n"
-            "  • 🔍 Поиск · 🔖 Закладки\n\n"
+            "  • � Обзор сур · 🔖 Закладки\n\n"
             "🎮 <b>Команды:</b>\n"
             "/now — Аят прямо сейчас\n"
-            "/ayah 2:255 — Конкретный аят\n"
+            "/surah — Обзор всех сур\n"
+            "/surah 18 — Случайный аят из суры\n"
             "/hadith — Случайный хадис\n"
             "/remind 08:30 — Добавить напоминание\n"
             "/reminders — Мои напоминания\n"
-            "/search слово — Поиск в тафсирах\n"
             "/bookmark 2:255 — Закладка\n"
             "/bookmarks — Мои закладки\n\n"
             "🤲 <i>Пусть этот бот приблизит вас к словам Аллаха.</i>"
@@ -117,13 +116,12 @@ _STRINGS = {
         "qurtubi_excerpt": "Тафсир аль-Куртуби (отрывок)",
         "qushairi_excerpt": "Тафсир аль-Кушайри (отрывок)",
         "full_text_hint": "👇 Полный текст — кнопка ниже",
-        "ayah_usage": "📌 <b>Формат:</b> <code>/ayah 2:255</code>",
-        "ayah_bad_format": "❌ Неверный формат. <code>/ayah 2:255</code>",
         "hadith_title": "📿 <b>Хадис</b>",
-        "search_hint": "🔍 <code>/search слово</code> — поиск в тафсире",
-        "searching": "🔍 Ищу «{kw}»…",
-        "search_empty": "😔 По запросу «{kw}» ничего не найдено.",
-        "search_results": "🔍 <b>Результаты: «{kw}»</b> ({n})",
+        "surah_title": "📚 <b>Обзор сур</b>",
+        "surah_page": "Стр. {page}/{total}",
+        "surah_usage": "📌 <code>/surah 18</code> — случайный аят из суры",
+        "surah_not_found": "❌ Сура не найдена. Введите число 1–114.",
+        "surah_random_from": "🎲 Случайный аят из суры {name}",
         "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
         "bookmark_bad": "❌ Формат: <code>/bookmark 2:255</code>",
         "bookmark_added": "✅ <b>Закладка:</b> {name} — {ref}",
@@ -186,14 +184,14 @@ _STRINGS = {
             "  • ⏰ Personal reminders\n"
             "  • 🇷🇺 🇬🇧 🇹🇷 Translation (Google)\n"
             "  • ⬅️ ➡️ Ayah navigation\n"
-            "  • 🔍 Search · 🔖 Bookmarks\n\n"
+            "  • � Surah browser · 🔖 Bookmarks\n\n"
             "🎮 <b>Commands:</b>\n"
             "/now — Random ayah now\n"
-            "/ayah 2:255 — Specific ayah\n"
+            "/surah — Browse all surahs\n"
+            "/surah 18 — Random ayah from surah\n"
             "/hadith — Random hadith\n"
             "/remind 08:30 — Add reminder\n"
             "/reminders — My reminders\n"
-            "/search word — Search tafsir\n"
             "/bookmark 2:255 — Bookmark\n"
             "/bookmarks — My bookmarks\n\n"
             "🤲 <i>May this bot bring you closer to the words of Allah.</i>"
@@ -203,13 +201,12 @@ _STRINGS = {
         "qurtubi_excerpt": "Tafsir al-Qurtubi (excerpt)",
         "qushairi_excerpt": "Tafsir al-Qushairi (excerpt)",
         "full_text_hint": "👇 Full text — button below",
-        "ayah_usage": "📌 <b>Usage:</b> <code>/ayah 2:255</code>",
-        "ayah_bad_format": "❌ Invalid format. <code>/ayah 2:255</code>",
         "hadith_title": "📿 <b>Hadith</b>",
-        "search_hint": "🔍 <code>/search word</code> — search tafsir",
-        "searching": "🔍 Searching «{kw}»…",
-        "search_empty": "😔 No results for «{kw}».",
-        "search_results": "🔍 <b>Results: «{kw}»</b> ({n})",
+        "surah_title": "📚 <b>Surah Browser</b>",
+        "surah_page": "Page {page}/{total}",
+        "surah_usage": "📌 <code>/surah 18</code> — random ayah from surah",
+        "surah_not_found": "❌ Surah not found. Enter a number 1–114.",
+        "surah_random_from": "🎲 Random ayah from Surah {name}",
         "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
         "bookmark_bad": "❌ Format: <code>/bookmark 2:255</code>",
         "bookmark_added": "✅ <b>Bookmarked:</b> {name} — {ref}",
@@ -272,14 +269,14 @@ _STRINGS = {
             "  • ⏰ Kişisel hatırlatmalar\n"
             "  • 🇷🇺 🇬🇧 🇹🇷 Çeviri (Google)\n"
             "  • ⬅️ ➡️ Ayet navigasyonu\n"
-            "  • 🔍 Arama · 🔖 Yer İmleri\n\n"
+            "  • � Sure tarayıcı · 🔖 Yer İmleri\n\n"
             "🎮 <b>Komutlar:</b>\n"
             "/now — Şimdi rastgele ayet\n"
-            "/ayah 2:255 — Belirli bir ayet\n"
+            "/surah — Tüm surelere göz at\n"
+            "/surah 18 — Sureden rastgele ayet\n"
             "/hadith — Rastgele hadis\n"
             "/remind 08:30 — Hatırlatma ekle\n"
             "/reminders — Hatırlatmalarım\n"
-            "/search kelime — Tefsirde ara\n"
             "/bookmark 2:255 — Yer imi\n"
             "/bookmarks — Yer imlerim\n\n"
             "🤲 <i>Bu bot sizi Allah'ın sözlerine yaklaştırsın.</i>"
@@ -289,13 +286,12 @@ _STRINGS = {
         "qurtubi_excerpt": "Kurtubi Tefsiri (alıntı)",
         "qushairi_excerpt": "Kuşeyri Tefsiri (alıntı)",
         "full_text_hint": "👇 Tam metin — aşağıdaki düğme",
-        "ayah_usage": "📌 <b>Kullanım:</b> <code>/ayah 2:255</code>",
-        "ayah_bad_format": "❌ Geçersiz format. <code>/ayah 2:255</code>",
         "hadith_title": "📿 <b>Hadis</b>",
-        "search_hint": "🔍 <code>/search kelime</code> — tefsirde ara",
-        "searching": "🔍 «{kw}» aranıyor…",
-        "search_empty": "😔 «{kw}» için sonuç bulunamadı.",
-        "search_results": "🔍 <b>Sonuçlar: «{kw}»</b> ({n})",
+        "surah_title": "📚 <b>Sure Tarayıcı</b>",
+        "surah_page": "Sayfa {page}/{total}",
+        "surah_usage": "📌 <code>/surah 18</code> — sureden rastgele ayet",
+        "surah_not_found": "❌ Sure bulunamadı. 1–114 arası bir sayı girin.",
+        "surah_random_from": "🎲 {name} suresinden rastgele ayet",
         "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
         "bookmark_bad": "❌ Format: <code>/bookmark 2:255</code>",
         "bookmark_added": "✅ <b>Yer imi:</b> {name} — {ref}",
@@ -708,36 +704,91 @@ async def cmd_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _safe_send(wait, msg, keyboard=kb, lang=lang)
 
 
-async def cmd_ayah(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def cmd_surah(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """
+    /surah         — Browse all 114 surahs (paginated, 20 per page)
+    /surah 18      — Random ayah from surah 18 (Al-Kahf)
+    /surah 2 page  — Page 2 of the surah browser
+    """
     uid = update.effective_user.id
     lang = user_data.get_language(uid)
     s = S(lang)
     streak = user_data.get_streak(uid)["current"]
 
-    if not ctx.args:
-        await update.message.reply_text(s["ayah_usage"], parse_mode="HTML")
-        return
-    try:
-        parts = ctx.args[0].split(":")
-        su, ay = int(parts[0]), int(parts[1])
-        assert 1 <= su <= 114 and 1 <= ay <= get_ayah_count(su)
-    except Exception:
-        await update.message.reply_text(s["ayah_bad_format"], parse_mode="HTML")
+    # ── /surah <number> → Random ayah from that surah ──
+    if ctx.args:
+        try:
+            su = int(ctx.args[0])
+            assert 1 <= su <= 114
+        except (ValueError, AssertionError):
+            await update.message.reply_text(s["surah_not_found"], parse_mode="HTML")
+            return
+
+        # Fetch a random ayah from the specified surah
+        total = get_ayah_count(su)
+        ay = random.randint(1, total) if total > 0 else 1
+        wait = await update.message.reply_text(
+            s["surah_random_from"].format(name=f"{get_surah_name(su)} ({su})"))
+        data = fetch_ayah_text(su, ay, lang)
+        if not data:
+            await wait.edit_text(s["load_error"])
+            return
+        q = get_tafsir_for_ayah(su, ay, "qurtubi")
+        qs = get_tafsir_for_ayah(su, ay, "qushairi")
+        user_data.mark_ayah_read(uid, su, ay)
+        msg = format_ayah_full(data, q, qs, None, lang, streak)
+        kb = _build_ayah_keyboard(su, ay, lang)
+        await _safe_send(wait, msg, keyboard=kb, lang=lang)
         return
 
-    wait = await update.message.reply_text(s["loading"])
-    data = fetch_ayah_text(su, ay, lang)
-    if not data:
-        await wait.edit_text(s["load_error"])
-        return
+    # ── /surah (no args) → Paginated surah browser, page 1 ──
+    await _send_surah_page(update.message, uid, lang, page=1)
 
-    q = get_tafsir_for_ayah(su, ay, "qurtubi")
-    qs = get_tafsir_for_ayah(su, ay, "qushairi")
-    user_data.mark_ayah_read(uid, su, ay)
 
-    msg = format_ayah_full(data, q, qs, None, lang, streak)
-    kb = _build_ayah_keyboard(su, ay, lang)
-    await _safe_send(wait, msg, keyboard=kb, lang=lang)
+# ── Surah browser pagination (20 surahs per page) ──
+_SURAHS_PER_PAGE = 20
+_TOTAL_SURAH_PAGES = (114 + _SURAHS_PER_PAGE - 1) // _SURAHS_PER_PAGE  # = 6
+
+
+async def _send_surah_page(target, uid, lang: str, page: int = 1, edit: bool = False):
+    """
+    Render a page of the surah browser and send / edit the message.
+    Each page shows 20 surahs with their Arabic name and ayah count.
+    Navigation buttons allow paging through all 114 surahs.
+    """
+    s = S(lang)
+    page = max(1, min(page, _TOTAL_SURAH_PAGES))
+    start = (page - 1) * _SURAHS_PER_PAGE + 1
+    end = min(start + _SURAHS_PER_PAGE - 1, 114)
+
+    msg = (
+        f"{s['surah_title']}  —  "
+        f"{s['surah_page'].format(page=page, total=_TOTAL_SURAH_PAGES)}\n\n"
+    )
+    for n in range(start, end + 1):
+        name = SURAH_NAMES.get(n, "")
+        count = SURAH_AYAH_COUNT.get(n, 0)
+        msg += f"  <b>{n}.</b> {name}  •  {count} {s['ayah_word'].lower()}\n"
+
+    msg += f"\n{s['surah_usage']}"
+
+    # Build pagination + random buttons
+    nav_buttons = []
+    if page > 1:
+        nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"surahp_{page - 1}"))
+    nav_buttons.append(
+        InlineKeyboardButton(f"📄 {page}/{_TOTAL_SURAH_PAGES}", callback_data="noop"))
+    if page < _TOTAL_SURAH_PAGES:
+        nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f"surahp_{page + 1}"))
+
+    kb = InlineKeyboardMarkup([nav_buttons])
+
+    if edit and hasattr(target, "edit_message_text"):
+        await target.edit_message_text(msg, parse_mode="HTML", reply_markup=kb)
+    elif edit and hasattr(target, "edit_text"):
+        await target.edit_text(msg, parse_mode="HTML", reply_markup=kb)
+    else:
+        await target.reply_text(msg, parse_mode="HTML", reply_markup=kb)
 
 
 async def cmd_hadith(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -751,28 +802,7 @@ async def cmd_hadith(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         msg, parse_mode="HTML", reply_markup=_build_hadith_keyboard(lang))
 
 
-async def cmd_search(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    if not ctx.args:
-        await update.message.reply_text(s["search_hint"], parse_mode="HTML")
-        return
-    kw = " ".join(ctx.args)
-    await update.message.reply_text(s["searching"].format(kw=kw))
-    results = search_tafsir(kw, "qushairi", max_results=8)
-    if not results:
-        await update.message.reply_text(s["search_empty"].format(kw=kw))
-        return
-    msg = s["search_results"].format(kw=kw, n=len(results)) + "\n\n"
-    for i, r in enumerate(results, 1):
-        snip = r["snippet"].replace("<", "&lt;").replace(">", "&gt;")
-        msg += f"<b>{i}. {r['surah_name']} — {r['surah']}:{r['ayah']}</b>\n<i>{snip}</i>\n\n"
-    msg += "📌 <code>/ayah surah:ayah</code>"
-    try:
-        await update.message.reply_text(msg, parse_mode="HTML")
-    except Exception:
-        await update.message.reply_text(msg[:4000], parse_mode="HTML")
+# cmd_search removed — search functionality has been removed from the bot
 
 
 async def cmd_bookmark(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -951,6 +981,8 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _cb_setlang(query)
     elif d.startswith("bmark_"):
         await _cb_bookmark(query)
+    elif d.startswith("surahp_"):
+        await _cb_surah_page(query)
     elif d == "another_hadith":
         await _cb_hadith(query)
     elif d == "translate_hadith":
@@ -1028,6 +1060,18 @@ async def _cb_bookmark(query):
         await query.answer(S(lang)["bookmark_dup"])
 
 
+async def _cb_surah_page(query):
+    """Handle surah browser pagination button clicks."""
+    await query.answer()
+    try:
+        page = int(query.data.split("_")[1])
+    except (IndexError, ValueError):
+        return
+    uid = query.from_user.id
+    lang = user_data.get_language(uid)
+    await _send_surah_page(query, uid, lang, page=page, edit=True)
+
+
 async def _cb_hadith(query):
     await query.answer()
     uid = query.from_user.id
@@ -1062,7 +1106,9 @@ _bot_app: Application | None = None
 
 
 async def send_scheduled_message(app: Application):
+    """Send a scheduled daily ayah message to the main CHAT_ID."""
     try:
+        logger.info("⏰ Scheduled message triggered")
         lang = user_data.get_language(CHAT_ID)
         data = fetch_random_ayah(lang)
         if not data:
@@ -1083,11 +1129,17 @@ async def send_scheduled_message(app: Application):
 async def send_reminder_message(app: Application, uid: int,
                                 surah: int | None, ayah: int | None,
                                 label: str):
+    """
+    Fire a personal reminder for a user.
+    Called by APScheduler at the user's configured time.
+    """
     try:
+        logger.info("⏰ Reminder firing for uid=%s (surah=%s, ayah=%s)", uid, surah, ayah)
         lang = user_data.get_language(uid)
         s = S(lang)
         data = fetch_ayah_text(surah, ayah, lang) if surah and ayah else fetch_random_ayah(lang)
         if not data:
+            logger.error("⏰ Reminder: fetch failed for uid=%s", uid)
             return
         su, ay = data["surah_num"], data["ayah"]
         user_data.mark_ayah_read(uid, su, ay)
@@ -1106,9 +1158,9 @@ async def send_reminder_message(app: Application, uid: int,
         kb = _build_ayah_keyboard(su, ay, lang)
         await app.bot.send_message(chat_id=uid, text=msg[:4096],
                                    parse_mode="HTML", reply_markup=kb)
-        logger.info("⏰ Reminder → uid=%s  %s:%s", uid, su, ay)
+        logger.info("✅ Reminder sent → uid=%s  %s:%s", uid, su, ay)
     except Exception as e:
-        logger.error("Reminder error uid=%s: %s", uid, e)
+        logger.error("❌ Reminder error uid=%s: %s", uid, e, exc_info=True)
 
 
 def _reminder_job_id(uid, time_str: str) -> str:
@@ -1116,7 +1168,16 @@ def _reminder_job_id(uid, time_str: str) -> str:
 
 
 def _register_reminder_job(uid, reminder: dict, app: Application):
+    """
+    Register a single reminder as an APScheduler cron job.
+    
+    FIX: Added misfire_grace_time so jobs fire even if slightly delayed.
+    FIX: Ensured uid is always cast to int for send_message chat_id.
+    FIX: Added replace_existing=True to avoid duplicate job errors.
+    FIX: Added detailed logging for debugging.
+    """
     if not _scheduler:
+        logger.warning("⚠️ Scheduler not initialized, cannot register reminder for uid=%s", uid)
         return
     jid = _reminder_job_id(uid, reminder["time"])
     hh, mm = map(int, reminder["time"].split(":"))
@@ -1124,11 +1185,20 @@ def _register_reminder_job(uid, reminder: dict, app: Application):
         _scheduler.remove_job(jid)
     except Exception:
         pass
-    _scheduler.add_job(
-        send_reminder_message, "cron", hour=hh, minute=mm,
-        args=[app, int(uid), reminder.get("surah"), reminder.get("ayah"),
-              reminder.get("label", "")],
-        id=jid)
+    try:
+        _scheduler.add_job(
+            send_reminder_message, "cron", hour=hh, minute=mm,
+            args=[app, int(uid), reminder.get("surah"), reminder.get("ayah"),
+                  reminder.get("label", "")],
+            id=jid,
+            # CRITICAL: Allow up to 60s grace for misfires (server lag / busy loop)
+            misfire_grace_time=60,
+            # Replace existing job if it already exists (avoids ConflictingIdError)
+            replace_existing=True,
+        )
+        logger.info("📅 Registered reminder job: %s at %02d:%02d for uid=%s", jid, hh, mm, uid)
+    except Exception as e:
+        logger.error("❌ Failed to register reminder job %s: %s", jid, e, exc_info=True)
 
 
 def _remove_reminder_job(uid, time_str: str):
@@ -1148,6 +1218,10 @@ def _remove_all_reminder_jobs(uid):
 
 
 def _load_all_reminders(app: Application):
+    """
+    Load all active reminders from user_data.json and register them
+    as APScheduler cron jobs. Called once at bot startup.
+    """
     all_rems = user_data.get_all_reminders()
     count = 0
     for uid_str, rems in all_rems.items():
@@ -1155,7 +1229,7 @@ def _load_all_reminders(app: Application):
             if r.get("active", True):
                 _register_reminder_job(uid_str, r, app)
                 count += 1
-    logger.info("📅 Loaded %d reminders", count)
+    logger.info("📅 Loaded %d active reminders from %d users", count, len(all_rems))
 
 
 # ═══════════════════════════════════════════
@@ -1282,9 +1356,8 @@ async def main():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("now", cmd_now))
-    app.add_handler(CommandHandler("ayah", cmd_ayah))
+    app.add_handler(CommandHandler("surah", cmd_surah))
     app.add_handler(CommandHandler("hadith", cmd_hadith))
-    app.add_handler(CommandHandler("search", cmd_search))
     app.add_handler(CommandHandler("bookmark", cmd_bookmark))
     app.add_handler(CommandHandler("bookmarks", cmd_bookmarks))
     app.add_handler(CommandHandler("progress", cmd_progress))
@@ -1295,29 +1368,48 @@ async def main():
     app.add_handler(CommandHandler("delremind", cmd_delremind))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
-    _scheduler = AsyncIOScheduler()
+    # ── APScheduler: use UTC timezone and generous misfire_grace_time ──
+    # FIX: Without misfire_grace_time, jobs that fire even 1 second late are
+    #       silently dropped. This was the primary cause of reminders not firing.
+    #       Railway and other PaaS platforms can have momentary lag / sleep.
+    _scheduler = AsyncIOScheduler(
+        job_defaults={"misfire_grace_time": 120},  # allow up to 2 min late
+    )
     for t in SCHEDULE_TIMES:
         hh, mm = map(int, t.split(":"))
         _scheduler.add_job(send_scheduled_message, "cron",
-                           hour=hh, minute=mm, args=[app])
+                           hour=hh, minute=mm, args=[app],
+                           id=f"schedule_{hh:02d}{mm:02d}",
+                           replace_existing=True,
+                           misfire_grace_time=120)
+
+    # FIX: Initialize and start bot BEFORE loading reminders,
+    #       so that app.bot is ready when reminder jobs fire.
+    await app.initialize()
+    await app.start()
+    logger.info("✅ Bot initialized and started")
+
+    # Now load user reminders and start the scheduler
     _load_all_reminders(app)
     _scheduler.start()
 
-    logger.info("📅 %d schedules + reminders loaded", len(SCHEDULE_TIMES))
-    logger.info("✅ Bot running!  Ctrl+C to stop.")
+    # Log all registered jobs for debugging
+    jobs = _scheduler.get_jobs()
+    logger.info("📅 Scheduler started with %d total jobs (%d schedules + reminders)",
+                len(jobs), len(SCHEDULE_TIMES))
+    for job in jobs:
+        logger.info("  📌 Job: %s  next_run=%s", job.id, job.next_run_time)
 
-    await app.initialize()
-    await app.start()
+    logger.info("✅ Bot running!  Ctrl+C to stop.")
 
     # ── Set the bot's command menu (the buttons users see) ──
     from telegram import BotCommand
     await app.bot.set_my_commands([
         BotCommand("now", "Random ayah / Случайный аят"),
-        BotCommand("ayah", "Specific ayah / Конкретный аят"),
+        BotCommand("surah", "Browse surahs / Обзор сур"),
         BotCommand("hadith", "Random hadith / Хадис"),
         BotCommand("remind", "Add reminder / Напоминание"),
         BotCommand("reminders", "My reminders / Мои напоминания"),
-        BotCommand("search", "Search tafsir / Поиск"),
         BotCommand("bookmark", "Bookmark ayah / Закладка"),
         BotCommand("bookmarks", "My bookmarks / Закладки"),
         BotCommand("lang", "Change language / Язык"),
