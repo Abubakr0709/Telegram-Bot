@@ -1,143 +1,65 @@
-# 🕌 Quran & Tafsir Telegram Bot
+# 🕌 Коран и Тафсир — Telegram Bot
 
-**All-in-one Telegram bot with embedded web server** for delivering daily Quran ayahs with full tafsir commentary via Telegram Mini Apps.
+Минималистичный Telegram-бот с ежедневными аятами, полным тафсиром и хадисами.
 
-## Features
+## Возможности
 
-- 📖 **Telegram Mini App** — View full tafsir (al-Qurtubi + al-Qushairi) without 4096-char message limits
-- ⏰ **Personal Reminders** — Set daily reminders for any ayah at any time
-- 📅 **Auto-scheduled Messages** — 10 daily ayah messages automatically
-- �🇺 **Russian-only** — All UI in Russian, Google Translate for hadith/tafsir
-- 🔖 **Bookmarks & Progress** — Track your reading journey
-- 🔥 **Streaks** — Daily reading streak tracking
-- ⬅️➡️ **Navigation** — Browse ayahs with inline buttons
+- 📖 **Telegram Mini App** — Полный тафсир аль-Куртуби и аль-Кушайри
+- 📅 **Автоматические сообщения** — 10 аятов в день по расписанию
+- 🇷🇺 **Русский язык** — Все переводы через Google Translate
+- 🔖 **Закладки** — Сохраняйте любимые аяты
+- ⬅️➡️ **Навигация** — Листайте аяты кнопками
 
-## Quick Start
+## Команды
 
-### 1. Install Dependencies
+| Команда | Описание |
+|---------|----------|
+| `/random` | Случайный аят с тафсиром |
+| `/hadith` | Случайный хадис из Сахих аль-Бухари |
+| `/bookmarks` | Просмотр сохранённых аятов |
+
+## Быстрый старт
 
 ```bash
 pip install -r requirements.txt
+python main.py
 ```
 
-### 2. Configure (Optional)
+Запускает одновременно:
+- ✅ Telegram бот (polling)
+- ✅ Flask сервер (порт 5000, Mini App)
+- ✅ Планировщик (автоматические аяты)
 
-Set environment variables for production:
+## Переменные окружения
 
 ```bash
 export BOT_TOKEN="your-telegram-bot-token"
 export CHAT_ID="your-telegram-chat-id"
-export WEBAPP_URL="https://your-domain.com"  # Required for Mini Apps
+export WEBAPP_URL="https://your-domain.com"
 ```
 
-Or edit `config.py` directly.
-
-### 3. Run Everything
-
-```bash
-python main.py
-```
-
-This single command starts:
-- ✅ Telegram bot (polling)
-- ✅ Flask web server (port 5000, serves Mini App)
-- ✅ Scheduler (auto-messages + reminders)
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Welcome message with feature overview |
-| `/surah` | Browse all 114 surahs |
-| `/surah 18` | Random ayah from a specific surah |
-| `/hadith` | Random Sahih Bukhari hadith |
-| `/remind 08:30` | Daily reminder at 08:30 (random ayah) |
-| `/remind 08:30 2:255` | Daily reminder for specific ayah |
-| `/reminders` | List all your reminders |
-| `/delremind 1` | Delete reminder #1 |
-| `/bookmark 2:255` | Add ayah to bookmarks |
-| `/bookmarks` | List your bookmarks |
-| `/progress` | View reading stats & streak |
-| `/times` | Show auto-schedule times |
-
-## Mini App (Web Tafsir)
-
-Every ayah message has a **"📖 Читать полный Тафсир"** button that opens a beautiful mobile-optimized web view inside Telegram showing:
-
-- Full Arabic ayah text with proper typography
-- Russian translation (ru.kuliev)
-- Complete Tafsir al-Qurtubi (translated to Russian)
-- Complete Tafsir al-Qushairi (translated to Russian)
-- Collapsible sections, ayah navigation
-
-**No 4096-character message limit!**
-
-## Production Deployment
-
-Telegram Mini Apps require HTTPS. Options:
-
-### Option A: ngrok (for testing)
-
-```bash
-ngrok http 5000
-# Copy the https URL
-export WEBAPP_URL=https://xxxx.ngrok-free.app
-python main.py
-```
-
-### Option B: Deploy to Render/Railway
-
-1. Push code to GitHub
-2. Deploy to Render or Railway
-3. Set `WEBAPP_URL` to your deployment URL (e.g., `https://your-app.onrender.com`)
-
-## File Structure
+## Структура
 
 ```
-Barkhudarov_Bot/
-├── main.py                    # Bot + Flask server + scheduler (all-in-one)
-├── config.py                  # Settings & environment variables
-├── tafsir_loader.py           # Local tafsir data loader
-├── user_data.py               # User data (bookmarks, reminders, progress)
-├── requirements.txt           # Python dependencies
+├── main.py              # Бот + Flask + планировщик
+├── config.py            # Настройки
+├── tafsir_loader.py     # Загрузка тафсира из JSON
+├── user_data.py         # Закладки и данные пользователей
 ├── webapp/
-│   └── index.html            # Telegram Mini App (single-page app)
-├── ar-tafseer-al-qurtubi/    # Local tafsir data (114 surah folders)
-└── en-al-qushairi-tafsir/    # Local tafsir data (114 surah folders)
+│   └── index.html       # Mini App (тафсир)
+├── ar-tafseer-al-qurtubi/  # Тафсир аль-Куртуби (114 сур)
+└── en-al-qushairi-tafsir/  # Тафсир аль-Кушайри (114 сур)
 ```
 
-## Data Persistence
+## API
 
-All user data is stored in `user_data.json`:
-- Bookmarks
-- Reading progress & streaks
-- Language preferences
-- Personal reminders
+- `GET /api/tafsir?surah=1&ayah=1` — Полный тафсир (JSON)
+- `GET /api/surah-list` — Список всех 114 сур
+- `GET /api/health` — Статус сервера
 
-## API Endpoints
+## Технологии
 
-The embedded Flask server provides:
-
-- `GET /webapp` — Serves the Mini App HTML
-- `GET /api/tafsir?surah=1&ayah=1&lang=ru` — Full tafsir JSON
-- `GET /api/surah-list` — List all 114 surahs
-- `GET /api/health` — Health check
-
-## Tech Stack
-
-- **python-telegram-bot** 20.7 — Telegram Bot API
-- **Flask** 3.1.0 — Web server for Mini App
-- **APScheduler** 3.10.4 — Scheduled messages & reminders
-- **deep-translator** 1.11.4 — Google Translate (free, no API key)
-- Local JSON tafsir data (no external APIs)
-
-## License
-
-Personal project for Quran study and reflection.
-
-## Credits
-
-- Tafsir al-Qurtubi (Arabic classical commentary)
-- Tafsir al-Qushairi (English spiritual commentary)
-- Al-Quran Cloud API for Quran text
-- Random Hadith API for Sahih Bukhari hadiths
+- **python-telegram-bot** — Telegram Bot API
+- **Flask** — Веб-сервер для Mini App
+- **APScheduler** — Планировщик сообщений
+- **deep-translator** — Google Translate (бесплатно)

@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-🕌 Quran & Tafsir Telegram Bot  (all-in-one)
-──────────────────────────────────────────────
-Runs BOTH the Telegram bot AND the Flask web server
-in a single process so one `python main.py` starts everything.
+🕌 Коран и Тафсир — Telegram Bot
+─────────────────────────────────
+Минималистичный бот: /random · /hadith · /bookmarks
+Перевод: Google Translate (deep-translator, бесплатно).
+Весь интерфейс на русском. Аяты — на арабском + перевод.
 
-Translation: deep-translator (Google Translate, free) with disk cache.
-Russian-only bot — all UI is in Russian, only the ayah text is in Arabic.
+Один процесс запускает:
+  • Telegram-бот (polling)
+  • Flask-сервер (Mini Web App для тафсира)
+  • APScheduler (ежедневные аяты по расписанию)
 """
 
 import asyncio
@@ -24,12 +27,20 @@ import requests
 from deep_translator import GoogleTranslator
 from flask import Flask, jsonify, request as flask_request, send_from_directory
 from flask_cors import CORS
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    BotCommand,
+    WebAppInfo,
+)
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -40,7 +51,6 @@ from config import (
     QURAN_API_BASE,
     HADITH_API_BASE,
     HADITH_SECTIONS,
-    QURAN_EDITIONS,
     DEFAULT_TRANSLATION,
     WEBAPP_URL,
     FLASK_HOST,
@@ -58,6 +68,7 @@ from tafsir_loader import (
 )
 import user_data
 
+
 # ═══════════════════════════════════════════
 # 📝  LOGGING
 # ═══════════════════════════════════════════
@@ -69,112 +80,50 @@ logging.basicConfig(
 logger = logging.getLogger("bot")
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
+
 # ═══════════════════════════════════════════
-# 🌍  FULL  i18n  STRINGS
+# 🎨  СТРОКИ  ИНТЕРФЕЙСА  (только русский)
 # ═══════════════════════════════════════════
 
-_STRINGS = {
-    "ru": {
-        "title": "КОРАН И ТАФСИР",
-        "arabic_label": "Арабский текст",
-        "translation_label": "Перевод",
-        "hadith_label": "Хадис дня",
-        "tafsir_btn": "📖 Читать полный Тафсир",
-        "bookmark_btn": "🔖 Закладка",
-        "more_hadith": "🔄 Ещё хадис",
-        "translate_btn": "🌐 Перевести",
-        "surah_word": "Сура",
-        "ayah_word": "Аят",
-        "full_tafsir_hint": "👇 Нажмите кнопку для полного тафсира",
-        "blessing": "🤲 Да благословит вас Аллах знанием.",
-        "loading": "📖 Загружаю аят… ✨",
-        "load_error": "❌ Ошибка загрузки. Попробуйте ещё раз.",
-        "welcome": (
-            "✨ <b>Ас-саляму алейкум!</b> ✨\n\n"
-            "Добро пожаловать в <b>Коран и Тафсир Бот</b>! 🕌\n\n"
-            "📅 <b>Возможности:</b>\n"
-            "  • Аят + тафсир + хадис каждый день\n"
-            "  • 📖 Mini App для полного тафсира\n"
-            "  • ⏰ Личные напоминания\n"
-            "  • 🇷🇺 Перевод на русский\n"
-            "  • ⬅️ ➡️ Навигация по аятам\n"
-            "  • 📚 Обзор сур · 🔖 Закладки\n\n"
-            "🎮 <b>Команды:</b>\n"
-            "/surah — Обзор всех сур\n"
-            "/surah 18 — Случайный аят из суры\n"
-            "/hadith — Случайный хадис\n"
-            "/remind 08:30 — Добавить напоминание\n"
-            "/reminders — Мои напоминания\n"
-            "/bookmark 2:255 — Закладка\n"
-            "/bookmarks — Мои закладки\n\n"
-            "🤲 <i>Пусть этот бот приблизит вас к словам Аллаха.</i>"
-        ),
-        "streak_days": "дн.",
-        "streak_label": "Серия",
-        "qurtubi_excerpt": "Тафсир аль-Куртуби (отрывок)",
-        "qushairi_excerpt": "Тафсир аль-Кушайри (отрывок)",
-        "full_text_hint": "👇 Полный текст — кнопка ниже",
-        "hadith_title": "📿 <b>Хадис</b>",
-        "surah_title": "📚 <b>Обзор сур</b>",
-        "surah_page": "Стр. {page}/{total}",
-        "surah_usage": "📌 <code>/surah 18</code> — случайный аят из суры",
-        "surah_not_found": "❌ Сура не найдена. Введите число 1–114.",
-        "surah_random_from": "🎲 Случайный аят из суры {name}",
-        "bookmark_usage": "🔖 <code>/bookmark 2:255</code>",
-        "bookmark_bad": "❌ Формат: <code>/bookmark 2:255</code>",
-        "bookmark_added": "✅ <b>Закладка:</b> {name} — {ref}",
-        "bookmark_dup": "📌 Уже в закладках!",
-        "bookmarks_empty": "📌 Нет закладок. <code>/bookmark 2:255</code>",
-        "bookmarks_title": "🔖 <b>Ваши закладки:</b>",
-        "remind_help": (
-            "⏰ <b>Формат:</b>\n\n"
-            "<code>/remind 08:30</code> — случайный аят\n"
-            "<code>/remind 08:30 2:255</code> — конкретный аят\n"
-            "<code>/remind 08:30 Утро</code> — с подписью\n\n"
-            "Удалить: /reminders → /delremind номер"
-        ),
-        "remind_bad_time": "❌ Формат: <code>HH:MM</code>",
-        "remind_dup": "⚠️ Уже есть на {t}.",
-        "remind_ok": "✅ <b>Напоминание:</b> {t}  •  {desc}\n/reminders",
-        "random_ayah": "случайный аят",
-        "reminders_empty": "⏰ Нет напоминаний. <code>/remind 08:30</code>",
-        "reminders_title": "⏰ <b>Ваши напоминания:</b>",
-        "delremind_help": "<code>/delremind 1</code> или <code>/delremind all</code>",
-        "deleted_n": "🗑️ Удалено: {n}.",
-        "deleted_ok": "✅ #{i} удалено.",
-        "deleted_bad": "❌ Нет #{i}. /reminders",
-        "reminder_msg": "⏰ <b>Напоминание</b>",
-        "msg_truncated": "\n\n⚠️ <i>Сообщение сокращено.</i>",
-        "reflections": [
-            "💭 Каждый аят — послание именно для вас в этот момент.",
-            "💭 Коран — зеркало души. Что вы видите сегодня?",
-            "💭 Истинное знание приходит через размышление.",
-            "💭 Пусть каждое слово Аллаха станет светом на вашем пути.",
-            "💭 Терпение и благодарность — два крыла верующего.",
-            "💭 Каждый день — возможность стать ближе к Аллаху.",
-            "💭 Мудрость Корана раскрывается тем, кто ищет сердцем.",
-            "💭 В тишине размышления рождается понимание.",
-            "💭 Аллах не обременяет душу сверх её возможностей.",
-            "💭 Пусть сегодняшний аят станет проводником на весь день.",
-        ],
-    }
-}
+_REFLECTIONS = [
+    "💭 Каждый аят — послание именно для вас в этот момент.",
+    "💭 Коран — зеркало души. Что вы видите сегодня?",
+    "💭 Истинное знание приходит через размышление.",
+    "💭 Пусть каждое слово Аллаха станет светом на вашем пути.",
+    "💭 Терпение и благодарность — два крыла верующего.",
+    "💭 Каждый день — возможность стать ближе к Аллаху.",
+    "�� Мудрость Корана раскрывается тем, кто ищет сердцем.",
+    "💭 В тишине размышления рождается понимание.",
+    "💭 Аллах не обременяет душу сверх её возможностей.",
+    "💭 Пусть сегодняшний аят станет проводником на весь день.",
+]
 
-
-def S(lang: str) -> dict:
-    """Get the i18n string dict for a language."""
-    return _STRINGS.get(lang, _STRINGS["ru"])
+_WELCOME = (
+    "﷽\n\n"
+    "✨ <b>Ас-саляму алейкум!</b>\n\n"
+    "Я — <b>Коран и Тафсир</b>, ваш проводник\n"
+    "к словам Всевышнего.\n\n"
+    "┌─────────────────────┐\n"
+    "│  /random  — случайный аят    │\n"
+    "│  /hadith  — хадис дня            │\n"
+    "│  /bookmarks — закладки        │\n"
+    "└─────────────────────┘\n\n"
+    "📖 К каждому аяту прилагается полный\n"
+    "тафсир аль-Куртуби и аль-Кушайри\n"
+    "в отдельном Mini App.\n\n"
+    "🤲 <i>Пусть этот бот приблизит вас\n"
+    "к словам Аллаха.</i>"
+)
 
 
 # ═══════════════════════════════════════════
-# 🌐  TRANSLATION  (deep-translator + cache)
+# 🌐  ПЕРЕВОД  (Google Translate + кэш)
 # ═══════════════════════════════════════════
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _CACHE_FILE = os.path.join(_BASE_DIR, "translation_cache.json")
 _cache: dict = {}
 _cache_lock = threading.Lock()
-_LANG_MAP = {"ru": "ru", "ar": "ar", "en": "en"}
 
 
 def _load_cache():
@@ -202,16 +151,15 @@ def _cache_key(text: str, src: str, tgt: str) -> str:
     return h
 
 
-def translate_text(text: str, target_lang: str, source_lang: str = "auto") -> str:
-    """Translate text with paragraph chunking, caching, and safe fallback."""
+def translate_text(text: str, target_lang: str = "ru",
+                   source_lang: str = "auto") -> str:
+    """Translate with paragraph chunking, caching, and safe fallback."""
     if not text or not text.strip():
         return text
-    tgt = _LANG_MAP.get(target_lang, target_lang)
-    src = _LANG_MAP.get(source_lang, source_lang)
-    if tgt == src and src != "auto":
+    if target_lang == source_lang and source_lang != "auto":
         return text
 
-    ck = _cache_key(text, src, tgt)
+    ck = _cache_key(text, source_lang, target_lang)
     with _cache_lock:
         if ck in _cache:
             return _cache[ck]
@@ -238,13 +186,13 @@ def translate_text(text: str, target_lang: str, source_lang: str = "auto") -> st
 
     translated_parts: list[str] = []
     try:
-        translator = GoogleTranslator(source=src, target=tgt)
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
         for part in final:
             part = part.strip()
             if not part:
                 translated_parts.append("")
                 continue
-            pck = _cache_key(part, src, tgt)
+            pck = _cache_key(part, source_lang, target_lang)
             with _cache_lock:
                 if pck in _cache:
                     translated_parts.append(_cache[pck])
@@ -258,7 +206,7 @@ def translate_text(text: str, target_lang: str, source_lang: str = "auto") -> st
                 translated_parts.append(part)
             _time.sleep(0.15)
     except Exception as e:
-        logger.warning("Translation %s→%s failed: %s — returning original", src, tgt, e)
+        logger.warning("Translation %s→%s failed: %s", source_lang, target_lang, e)
         return text
 
     full_result = "\n".join(translated_parts)
@@ -270,43 +218,41 @@ def translate_text(text: str, target_lang: str, source_lang: str = "auto") -> st
 
 
 # ═══════════════════════════════════════════
-# 📡  QURAN  &  HADITH  APIs
+# 📡  QURAN  &  HADITH  API
 # ═══════════════════════════════════════════
 
-def fetch_ayah_text(surah: int, ayah: int, lang: str = "ru") -> dict | None:
+def fetch_ayah(surah: int, ayah: int) -> dict | None:
+    """Fetch Arabic text + Russian translation for a single ayah."""
     try:
-        edition = QURAN_EDITIONS.get(lang, DEFAULT_TRANSLATION)
-        r = requests.get(
-            f"{QURAN_API_BASE}/ayah/{surah}:{ayah}/editions/quran-unicode,{edition}",
-            timeout=10,
-        ).json()
+        url = (f"{QURAN_API_BASE}/ayah/{surah}:{ayah}"
+               f"/editions/quran-unicode,{DEFAULT_TRANSLATION}")
+        r = requests.get(url, timeout=10).json()
         if r.get("code") == 200:
+            ar_data = r["data"][0]
             return {
-                "arabic": r["data"][0]["text"],
+                "arabic": ar_data["text"],
                 "translation": r["data"][1]["text"],
-                "surah_en": r["data"][0]["surah"]["englishName"],
-                "surah_ar": r["data"][0]["surah"]["name"],
+                "surah_en": ar_data["surah"]["englishName"],
+                "surah_ar": ar_data["surah"]["name"],
                 "surah_num": surah,
-                "ayah": ayah,
+                "ayah_num": ayah,
+                "total_ayahs": ar_data["surah"]["numberOfAyahs"],
             }
     except Exception as e:
         logger.error("Quran API error: %s", e)
     return None
 
 
-def fetch_random_ayah(lang: str = "ru") -> dict | None:
-    try:
-        s = random.randint(1, 114)
-        total = get_ayah_count(s)
-        a = random.randint(1, total) if total > 0 else 1
-        return fetch_ayah_text(s, a, lang)
-    except Exception as e:
-        logger.error("Random ayah error: %s", e)
-        return None
+def fetch_random_ayah() -> dict | None:
+    """Fetch a random ayah from the entire Quran."""
+    s = random.randint(1, 114)
+    total = get_ayah_count(s)
+    a = random.randint(1, total) if total > 0 else 1
+    return fetch_ayah(s, a)
 
 
 def fetch_random_hadith() -> dict:
-    """Fetch a random hadith from Sahih Bukhari via fawazahmed0 CDN."""
+    """Fetch a random hadith from Sahih Bukhari."""
     try:
         section = random.randint(1, HADITH_SECTIONS)
         url = f"{HADITH_API_BASE}/{section}.json"
@@ -316,150 +262,155 @@ def fetch_random_hadith() -> dict:
         hadiths = data.get("hadiths", [])
         if hadiths:
             h = random.choice(hadiths)
-            text = h.get("text", "")
-            num = h.get("hadithnumber", "?")
-            ref_data = h.get("reference", {})
-            book = ref_data.get("book", section) if isinstance(ref_data, dict) else section
+            ref = h.get("reference", {})
+            book = ref.get("book", section) if isinstance(ref, dict) else section
             return {
-                "text": text,
-                "reference": f"Sahih al-Bukhari — Book {book}, Hadith {num}",
+                "text": h.get("text", ""),
+                "number": h.get("hadithnumber", "?"),
+                "book": book,
             }
     except Exception as e:
         logger.error("Hadith API error: %s", e)
     return {
         "text": "Actions are judged by intentions, so each man will have what he intended.",
-        "reference": "Sahih al-Bukhari, Hadith 1",
+        "number": 1,
+        "book": 1,
     }
 
 
-def _translate_hadith(text: str, lang: str) -> str:
-    if lang == "en" or not text:
-        return text
-    try:
-        return translate_text(text, lang, "en")
-    except Exception:
-        return text
-
-
 # ═══════════════════════════════════════════
-# 🎨  MESSAGE  FORMATTING  (fully localised)
+# 🎨  ФОРМАТИРОВАНИЕ  СООБЩЕНИЙ
 # ═══════════════════════════════════════════
 
-def _streak_emoji(streak: int, lang: str) -> str:
-    if streak <= 0:
-        return ""
-    s = S(lang)
-    return "🔥" * min(streak, 7) + f" {s['streak_label']}: {streak} {s['streak_days']}"
+def _webapp_url(surah: int, ayah: int) -> str:
+    return f"{WEBAPP_URL}/webapp?surah={surah}&ayah={ayah}&lang=ru"
 
 
-def _webapp_url(surah: int, ayah: int, lang: str) -> str:
-    return f"{WEBAPP_URL}/webapp?surah={surah}&ayah={ayah}&lang={lang}"
-
-
-def _build_ayah_keyboard(surah: int, ayah: int, lang: str) -> InlineKeyboardMarkup:
+def _ayah_keyboard(surah: int, ayah: int) -> InlineKeyboardMarkup:
+    """Inline keyboard for an ayah message."""
     ps, pa = get_prev_ayah(surah, ayah)
     ns, na = get_next_ayah(surah, ayah)
-    s = S(lang)
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⬅️", callback_data=f"nav_{ps}_{pa}_{lang}"),
+            InlineKeyboardButton("⬅️", callback_data=f"nav_{ps}_{pa}"),
             InlineKeyboardButton(f"📍 {surah}:{ayah}", callback_data="noop"),
-            InlineKeyboardButton("➡️", callback_data=f"nav_{ns}_{na}_{lang}"),
+            InlineKeyboardButton("➡️", callback_data=f"nav_{ns}_{na}"),
         ],
-        [
-            InlineKeyboardButton(
-                s["tafsir_btn"],
-                web_app=WebAppInfo(url=_webapp_url(surah, ayah, lang)),
-            ),
-        ],
-        [InlineKeyboardButton(s["bookmark_btn"], callback_data=f"bmark_{surah}_{ayah}")],
+        [InlineKeyboardButton(
+            "📖 Полный тафсир",
+            web_app=WebAppInfo(url=_webapp_url(surah, ayah)),
+        )],
+        [InlineKeyboardButton("🔖 В закладки", callback_data=f"bm_{surah}_{ayah}")],
     ])
 
 
-def _build_hadith_keyboard(lang: str) -> InlineKeyboardMarkup:
-    s = S(lang)
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(s["more_hadith"], callback_data="another_hadith"),
-    ]])
+def _hadith_keyboard() -> InlineKeyboardMarkup:
+    """Inline keyboard for a hadith message."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Ещё хадис", callback_data="more_hadith")],
+    ])
 
 
-def format_ayah_compact(ayah_data: dict, hadith: dict | None,
-                        lang: str, streak: int = 0) -> str:
-    s = S(lang)
-    s_ar = get_surah_name(ayah_data["surah_num"])
-    s_en = ayah_data.get("surah_en", "")
-    su, ay = ayah_data["surah_num"], ayah_data["ayah"]
-    flag = "🇷🇺"
-    streak_line = f"\n{_streak_emoji(streak, lang)}" if streak > 0 else ""
+def format_ayah_message(data: dict) -> str:
+    """Format a full ayah message with tafsir excerpts."""
+    su = data["surah_num"]
+    ay = data["ayah_num"]
+    s_ar = get_surah_name(su)
+    s_en = data.get("surah_en", "")
+
+    qurtubi = get_tafsir_for_ayah(su, ay, "qurtubi")
+    qushairi = get_tafsir_for_ayah(su, ay, "qushairi")
+    q_ru = translate_text(qurtubi, "ru", "ar")
+    qs_ru = translate_text(qushairi, "ru", "en")
+
+    if len(q_ru) > 600:
+        q_ru = q_ru[:597] + "…"
+    if len(qs_ru) > 400:
+        qs_ru = qs_ru[:397] + "…"
+
+    reflection = random.choice(_REFLECTIONS)
+
+    return (
+        f"┌───── ✦ КОРАН И ТАФСИР ✦ ─────┐\n\n"
+        f"🕌  <b>{s_ar}</b>  ({s_en})\n"
+        f"     Сура {su}, Аят {ay}\n\n"
+        f"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"📜  <b>Арабский текст:</b>\n"
+        f"<i>{data['arabic']}</i>\n\n"
+        f"🇷🇺  <b>Перевод:</b>\n"
+        f"{data['translation']}\n\n"
+        f"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"📚  <b>Тафсир аль-Куртуби:</b>\n"
+        f"<i>{q_ru}</i>\n\n"
+        f"📖  <b>Тафсир аль-Кушайри:</b>\n"
+        f"<i>{qs_ru}</i>\n\n"
+        f"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"{reflection}\n\n"
+        f"👇 Полный текст тафсира — кнопка ниже\n"
+        f"🤲 Да благословит вас Аллах знанием."
+    )
+
+
+def format_hadith_message(h: dict) -> str:
+    """Format a hadith message with Russian translation."""
+    text_ru = translate_text(h["text"], "ru", "en") if h["text"] else ""
+    if len(text_ru) > 1500:
+        text_ru = text_ru[:1497] + "…"
+
+    return (
+        f"┌──── ✦ ХАДИС ДНЯ ✦ ────┐\n\n"
+        f"📿  <i>{text_ru}</i>\n\n"
+        f"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"📖  <i>Сахих аль-Бухари</i>\n"
+        f"     Книга {h['book']}, Хадис {h['number']}\n\n"
+        f"🤲 Да благословит вас Аллах знанием."
+    )
+
+
+def format_ayah_compact(data: dict, hadith: dict | None = None) -> str:
+    """Compact format for scheduled messages and navigation."""
+    su = data["surah_num"]
+    ay = data["ayah_num"]
+    s_ar = get_surah_name(su)
+    s_en = data.get("surah_en", "")
+    reflection = random.choice(_REFLECTIONS)
 
     msg = (
-        f"╔══════════════════════════╗\n"
-        f"   ✨ <b>{s['title']}</b> ✨\n"
-        f"╚══════════════════════════╝{streak_line}\n\n"
-        f"🕌 <b>{s_ar} ({s_en})</b>\n"
-        f"📍 {s['surah_word']} {su}, {s['ayah_word']} {ay}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📜 <b>{s['arabic_label']}:</b>\n"
-        f"<i>{ayah_data['arabic']}</i>\n\n"
-        f"{flag} <b>{s['translation_label']}:</b>\n"
-        f"{ayah_data['translation']}\n"
+        f"┌───── ✦ КОРАН И ТАФСИР ✦ ─────┐\n\n"
+        f"🕌  <b>{s_ar}</b>  ({s_en})\n"
+        f"     Сура {su}, Аят {ay}\n\n"
+        f"┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"📜  <b>Арабский текст:</b>\n"
+        f"<i>{data['arabic']}</i>\n\n"
+        f"🇷🇺  <b>Перевод:</b>\n"
+        f"{data['translation']}\n"
     )
 
     if hadith:
-        h = _translate_hadith(hadith["text"], lang)
-        if len(h) > 300:
-            h = h[:297] + "…"
+        h_ru = translate_text(hadith["text"], "ru", "en")
+        if len(h_ru) > 300:
+            h_ru = h_ru[:297] + "…"
         msg += (
-            f"\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"📿 <b>{s['hadith_label']}:</b>\n<i>{h}</i>\n"
-            f"📖 <i>{hadith['reference']}</i>"
+            f"\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+            f"📿  <b>Хадис:</b>\n"
+            f"<i>{h_ru}</i>\n"
+            f"📖  <i>Сахих аль-Бухари — "
+            f"Книга {hadith['book']}, Хадис {hadith['number']}</i>"
         )
 
     msg += (
-        f"\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"{random.choice(s['reflections'])}\n\n"
-        f"{s['full_tafsir_hint']}\n"
-        f"{s['blessing']}"
+        f"\n\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n\n"
+        f"{reflection}\n\n"
+        f"👇 Полный тафсир — кнопка ниже\n"
+        f"🤲 Да благословит вас Аллах знанием."
     )
     return msg
 
 
-def format_ayah_full(ayah_data: dict, qurtubi: str, qushairi: str,
-                     hadith: dict | None, lang: str, streak: int = 0) -> str:
-    s = S(lang)
-    s_ar = get_surah_name(ayah_data["surah_num"])
-    s_en = ayah_data.get("surah_en", "")
-    su, ay = ayah_data["surah_num"], ayah_data["ayah"]
-    flag = "🇷🇺"
-
-    q = translate_text(qurtubi, lang, "ar") if lang != "ar" else qurtubi
-    qs = translate_text(qushairi, lang, "en") if lang != "en" else qushairi
-
-    streak_line = f"\n{_streak_emoji(streak, lang)}" if streak > 0 else ""
-
-    msg = (
-        f"╔══════════════════════════╗\n"
-        f"   ✨ <b>{s['title']}</b> ✨\n"
-        f"╚══════════════════════════╝{streak_line}\n\n"
-        f"🕌 <b>{s_ar} ({s_en})</b>\n"
-        f"📍 {s['surah_word']} {su}, {s['ayah_word']} {ay}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📜 <b>{s['arabic_label']}:</b>\n<i>{ayah_data['arabic']}</i>\n\n"
-        f"{flag} <b>{s['translation_label']}:</b>\n{ayah_data['translation']}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📚 <b>{s['qurtubi_excerpt']}:</b>\n{q}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📖 <b>{s['qushairi_excerpt']}:</b>\n{qs}\n\n"
-        f"{s['full_text_hint']}\n"
-        f"{s['blessing']}"
-    )
-    return msg
-
-
-# ── safe send / edit ─────────────────────────────────────────────
+# ── Безопасная отправка / редактирование ──
 
 async def _safe_send(target, text: str, *, chat_id=None,
-                     keyboard=None, parse_mode="HTML", lang="ru"):
+                     keyboard=None, parse_mode="HTML"):
     """Send or edit a Telegram message, truncating if needed."""
     txt = text[:4096]
     try:
@@ -467,18 +418,15 @@ async def _safe_send(target, text: str, *, chat_id=None,
             return await target.send_message(
                 chat_id=chat_id, text=txt,
                 parse_mode=parse_mode, reply_markup=keyboard)
-        # CallbackQuery — use .edit_message_text
         if hasattr(target, "edit_message_text"):
             return await target.edit_message_text(
                 txt, parse_mode=parse_mode, reply_markup=keyboard)
-        # Message object — use .edit_text
         if hasattr(target, "edit_text"):
             return await target.edit_text(
                 txt, parse_mode=parse_mode, reply_markup=keyboard)
     except Exception as e:
         logger.warning("Message send/edit error: %s", e)
-        s = S(lang)
-        short = text[:3900] + s["msg_truncated"]
+        short = text[:3900] + "\n\n⚠️ <i>Сообщение сокращено.</i>"
         try:
             if chat_id:
                 return await target.send_message(
@@ -495,346 +443,239 @@ async def _safe_send(target, text: str, *, chat_id=None,
 
 
 # ═══════════════════════════════════════════
-# 🤖  BOT COMMANDS
+# 🤖  ОБРАБОТЧИКИ  КОМАНД
 # ═══════════════════════════════════════════
 
-async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def cmd_random(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/random — случайный аят с тафсиром."""
     uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    await update.message.reply_text(s["welcome"], parse_mode="HTML")
 
+    # Auto-welcome for first-time users
+    if not user_data.user_exists(uid):
+        user_data.ensure_user(uid)
+        await update.message.reply_text(_WELCOME, parse_mode="HTML")
 
-async def cmd_surah(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """
-    /surah         — Browse all 114 surahs (paginated, 20 per page)
-    /surah 18      — Random ayah from surah 18 (Al-Kahf)
-    /surah 2 page  — Page 2 of the surah browser
-    """
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    streak = user_data.get_streak(uid)["current"]
-
-    # ── /surah <number> → Random ayah from that surah ──
-    if ctx.args:
-        try:
-            su = int(ctx.args[0])
-            assert 1 <= su <= 114
-        except (ValueError, AssertionError):
-            await update.message.reply_text(s["surah_not_found"], parse_mode="HTML")
-            return
-
-        # Fetch a random ayah from the specified surah
-        total = get_ayah_count(su)
-        ay = random.randint(1, total) if total > 0 else 1
-        wait = await update.message.reply_text(
-            s["surah_random_from"].format(name=f"{get_surah_name(su)} ({su})"))
-        data = fetch_ayah_text(su, ay, lang)
-        if not data:
-            await wait.edit_text(s["load_error"])
-            return
-        q = get_tafsir_for_ayah(su, ay, "qurtubi")
-        qs = get_tafsir_for_ayah(su, ay, "qushairi")
-        user_data.mark_ayah_read(uid, su, ay)
-        msg = format_ayah_full(data, q, qs, None, lang, streak)
-        kb = _build_ayah_keyboard(su, ay, lang)
-        await _safe_send(wait, msg, keyboard=kb, lang=lang)
+    wait = await update.message.reply_text("📖 Загружаю аят… ✨")
+    data = fetch_random_ayah()
+    if not data:
+        await wait.edit_text("❌ Ошибка загрузки. Попробуйте /random ещё раз.")
         return
 
-    # ── /surah (no args) → Paginated surah browser, page 1 ──
-    await _send_surah_page(update.message, uid, lang, page=1)
-
-
-# ── Surah browser pagination (20 surahs per page) ──
-_SURAHS_PER_PAGE = 20
-_TOTAL_SURAH_PAGES = (114 + _SURAHS_PER_PAGE - 1) // _SURAHS_PER_PAGE  # = 6
-
-
-async def _send_surah_page(target, uid, lang: str, page: int = 1, edit: bool = False):
-    """
-    Render a page of the surah browser and send / edit the message.
-    Each page shows 20 surahs with their Arabic name and ayah count.
-    Navigation buttons allow paging through all 114 surahs.
-    """
-    s = S(lang)
-    page = max(1, min(page, _TOTAL_SURAH_PAGES))
-    start = (page - 1) * _SURAHS_PER_PAGE + 1
-    end = min(start + _SURAHS_PER_PAGE - 1, 114)
-
-    msg = (
-        f"{s['surah_title']}  —  "
-        f"{s['surah_page'].format(page=page, total=_TOTAL_SURAH_PAGES)}\n\n"
-    )
-    for n in range(start, end + 1):
-        name = SURAH_NAMES.get(n, "")
-        count = SURAH_AYAH_COUNT.get(n, 0)
-        msg += f"  <b>{n}.</b> {name}  •  {count} {s['ayah_word'].lower()}\n"
-
-    msg += f"\n{s['surah_usage']}"
-
-    # Build pagination + random buttons
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"surahp_{page - 1}"))
-    nav_buttons.append(
-        InlineKeyboardButton(f"📄 {page}/{_TOTAL_SURAH_PAGES}", callback_data="noop"))
-    if page < _TOTAL_SURAH_PAGES:
-        nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f"surahp_{page + 1}"))
-
-    kb = InlineKeyboardMarkup([nav_buttons])
-
-    if edit and hasattr(target, "edit_message_text"):
-        await target.edit_message_text(msg, parse_mode="HTML", reply_markup=kb)
-    elif edit and hasattr(target, "edit_text"):
-        await target.edit_text(msg, parse_mode="HTML", reply_markup=kb)
-    else:
-        await target.reply_text(msg, parse_mode="HTML", reply_markup=kb)
+    su, ay = data["surah_num"], data["ayah_num"]
+    user_data.mark_ayah_read(uid, su, ay)
+    msg = format_ayah_message(data)
+    kb = _ayah_keyboard(su, ay)
+    await _safe_send(wait, msg, keyboard=kb)
 
 
 async def cmd_hadith(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/hadith — случайный хадис."""
     uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
+
+    if not user_data.user_exists(uid):
+        user_data.ensure_user(uid)
+        await update.message.reply_text(_WELCOME, parse_mode="HTML")
+
     h = fetch_random_hadith()
-    txt = _translate_hadith(h["text"], lang)
-    msg = f"{s['hadith_title']}\n\n<i>{txt}</i>\n\n📖 <i>{h['reference']}</i>"
+    msg = format_hadith_message(h)
     await update.message.reply_text(
-        msg, parse_mode="HTML", reply_markup=_build_hadith_keyboard(lang))
-
-
-# cmd_search removed — search functionality has been removed from the bot
-
-
-async def cmd_bookmark(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    if not ctx.args:
-        await update.message.reply_text(s["bookmark_usage"], parse_mode="HTML")
-        return
-    try:
-        parts = ctx.args[0].split(":")
-        su, ay = int(parts[0]), int(parts[1])
-    except Exception:
-        await update.message.reply_text(s["bookmark_bad"], parse_mode="HTML")
-        return
-    if user_data.add_bookmark(uid, su, ay):
-        await update.message.reply_text(
-            s["bookmark_added"].format(name=get_surah_name(su), ref=f"{su}:{ay}"),
-            parse_mode="HTML")
-    else:
-        await update.message.reply_text(s["bookmark_dup"])
+        msg, parse_mode="HTML", reply_markup=_hadith_keyboard())
 
 
 async def cmd_bookmarks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/bookmarks — список сохранённых аятов."""
     uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
+
+    if not user_data.user_exists(uid):
+        user_data.ensure_user(uid)
+
     bm = user_data.get_bookmarks(uid)
     if not bm:
-        await update.message.reply_text(s["bookmarks_empty"], parse_mode="HTML")
+        msg = (
+            "🔖  <b>Закладки пусты</b>\n\n"
+            "Нажмите  «🔖 В закладки»  под любым\n"
+            "аятом, чтобы сохранить его.\n\n"
+            "Попробуйте:  /random"
+        )
+        await update.message.reply_text(msg, parse_mode="HTML")
         return
-    msg = s["bookmarks_title"] + "\n\n"
+
+    msg = "��  <b>Ваши закладки:</b>\n\n"
+    buttons = []
     for i, ref in enumerate(bm, 1):
         su = int(ref.split(":")[0])
-        msg += f"  {i}. {get_surah_name(su)} — <code>{ref}</code>\n"
-    msg += f"\n📌 <code>/ayah surah:ayah</code>"
-    await update.message.reply_text(msg, parse_mode="HTML")
+        ay = int(ref.split(":")[1])
+        name = get_surah_name(su)
+        msg += f"  {i}.  {name}  —  <code>{ref}</code>\n"
+        buttons.append([
+            InlineKeyboardButton(
+                f"📖 {name} {ref}",
+                callback_data=f"load_{su}_{ay}",
+            ),
+            InlineKeyboardButton(
+                "🗑",
+                callback_data=f"delbm_{su}_{ay}",
+            ),
+        ])
+
+    msg += f"\n📌 Нажмите, чтобы открыть аят:"
+    kb = InlineKeyboardMarkup(buttons) if buttons else None
+    await update.message.reply_text(msg, parse_mode="HTML", reply_markup=kb)
 
 
-async def cmd_progress(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+async def handle_any_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle non-command text: auto-welcome or hint."""
+    if not update.message or not update.message.text:
+        return
     uid = update.effective_user.id
-    stats = user_data.get_reading_stats(uid)
-    sk = user_data.get_streak(uid)
-    bar = user_data.get_progress_bar(stats["percentage"])
-    msg = (
-        f"📊 <b>Progress</b>\n\n{bar}\n\n"
-        f"📖 {stats['total_read']} / {stats['total_ayahs']}  ({stats['percentage']}%)\n\n"
-        f"🔥 {sk['current']} (max {sk['max']})"
-    )
-    await update.message.reply_text(msg, parse_mode="HTML")
 
-
-async def cmd_times(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    lines = "\n".join(f"  🕐 {t}" for t in SCHEDULE_TIMES)
-    msg = f"⏰ <b>Schedule ({len(SCHEDULE_TIMES)}/day)</b>\n\n{lines}"
-    await update.message.reply_text(msg, parse_mode="HTML")
-
-
-
-# ═══════════════════════════════════════════
-# ⏰  REMINDER COMMANDS (localised)
-# ═══════════════════════════════════════════
-
-async def cmd_remind(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    if not ctx.args:
-        await update.message.reply_text(s["remind_help"], parse_mode="HTML")
-        return
-    time_str = ctx.args[0]
-    try:
-        hh, mm = time_str.split(":")
-        assert 0 <= int(hh) <= 23 and 0 <= int(mm) <= 59
-        time_str = f"{int(hh):02d}:{int(mm):02d}"
-    except Exception:
-        await update.message.reply_text(s["remind_bad_time"], parse_mode="HTML")
-        return
-
-    surah, ayah, label = None, None, ""
-    if len(ctx.args) > 1:
-        rest = " ".join(ctx.args[1:])
-        if ":" in rest.split()[0]:
-            try:
-                p = rest.split()[0].split(":")
-                surah, ayah = int(p[0]), int(p[1])
-                assert 1 <= surah <= 114 and 1 <= ayah <= get_ayah_count(surah)
-                label = " ".join(rest.split()[1:])
-            except Exception:
-                surah, ayah = None, None
-                label = rest
-        else:
-            label = rest
-
-    result = user_data.add_reminder(uid, time_str, surah, ayah, label)
-    if result is None:
-        await update.message.reply_text(s["remind_dup"].format(t=time_str))
-        return
-    desc = f"{surah}:{ayah}" if surah else s["random_ayah"]
-    if label:
-        desc += f" — {label}"
-    await update.message.reply_text(
-        s["remind_ok"].format(t=time_str, desc=desc), parse_mode="HTML")
-    _register_reminder_job(uid, result, ctx.application)
-
-
-async def cmd_reminders(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    rems = user_data.get_reminders(uid)
-    if not rems:
-        await update.message.reply_text(s["reminders_empty"], parse_mode="HTML")
-        return
-    msg = s["reminders_title"] + "\n\n"
-    for i, r in enumerate(rems, 1):
-        status = "✅" if r.get("active", True) else "⏸️"
-        ai = f" — {r['surah']}:{r['ayah']}" if r.get("surah") else f" — {s['random_ayah']}"
-        li = f"  «{r['label']}»" if r.get("label") else ""
-        msg += f"  {status} {i}. <b>{r['time']}</b>{ai}{li}\n"
-    msg += f"\n<code>/delremind 1</code>"
-    await update.message.reply_text(msg, parse_mode="HTML")
-
-
-async def cmd_delremind(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
-    if not ctx.args:
-        await update.message.reply_text(s["delremind_help"], parse_mode="HTML")
-        return
-    if ctx.args[0].lower() == "all":
-        count = user_data.clear_reminders(uid)
-        _remove_all_reminder_jobs(uid)
-        await update.message.reply_text(s["deleted_n"].format(n=count))
-        return
-    try:
-        idx = int(ctx.args[0])
-    except ValueError:
-        await update.message.reply_text(s["delremind_help"], parse_mode="HTML")
-        return
-    rems = user_data.get_reminders(uid)
-    if 1 <= idx <= len(rems):
-        _remove_reminder_job(uid, rems[idx - 1]["time"])
-    if user_data.remove_reminder(uid, idx):
-        await update.message.reply_text(s["deleted_ok"].format(i=idx))
+    if not user_data.user_exists(uid):
+        user_data.ensure_user(uid)
+        await update.message.reply_text(_WELCOME, parse_mode="HTML")
     else:
-        await update.message.reply_text(s["deleted_bad"].format(i=idx))
+        await update.message.reply_text(
+            "📖 Используйте:\n"
+            "/random — случайный аят\n"
+            "/hadith — хадис дня\n"
+            "/bookmarks — закладки",
+            parse_mode="HTML",
+        )
 
 
 # ═══════════════════════════════════════════
-# 🔄  CALLBACK HANDLERS
+# 🔄  CALLBACK  HANDLERS
 # ═══════════════════════════════════════════
 
 async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     d = query.data
+
     if d == "noop":
         await query.answer()
         return
     if d.startswith("nav_"):
         await _cb_nav(query)
-    elif d.startswith("bmark_"):
+    elif d.startswith("bm_"):
         await _cb_bookmark(query)
-    elif d.startswith("surahp_"):
-        await _cb_surah_page(query)
-    elif d == "another_hadith":
-        await _cb_hadith(query)
+    elif d.startswith("delbm_"):
+        await _cb_delbookmark(query)
+    elif d.startswith("load_"):
+        await _cb_load_ayah(query)
+    elif d == "more_hadith":
+        await _cb_more_hadith(query)
     else:
         await query.answer("❓")
 
 
 async def _cb_nav(query):
+    """Navigate to prev/next ayah."""
     await query.answer()
     try:
-        p = query.data.split("_")
-        su, ay, lang = int(p[1]), int(p[2]), p[3] if len(p) > 3 else "ru"
+        parts = query.data.split("_")
+        su, ay = int(parts[1]), int(parts[2])
     except Exception:
         return
     uid = query.from_user.id
-    streak = user_data.get_streak(uid)["current"]
-    data = fetch_ayah_text(su, ay, lang)
+    data = fetch_ayah(su, ay)
     if not data:
-        await query.answer("❌")
+        await query.answer("❌ Ошибка загрузки")
         return
     user_data.mark_ayah_read(uid, su, ay)
-    msg = format_ayah_compact(data, None, lang, streak)
-    kb = _build_ayah_keyboard(su, ay, lang)
-    await _safe_send(query, msg, keyboard=kb, lang=lang)
+    msg = format_ayah_compact(data)
+    kb = _ayah_keyboard(su, ay)
+    await _safe_send(query, msg, keyboard=kb)
 
 
 async def _cb_bookmark(query):
+    """Add an ayah to bookmarks."""
     try:
-        p = query.data.split("_")
-        su, ay = int(p[1]), int(p[2])
+        parts = query.data.split("_")
+        su, ay = int(parts[1]), int(parts[2])
     except Exception:
         await query.answer("❌")
         return
     uid = query.from_user.id
+    user_data.ensure_user(uid)
     if user_data.add_bookmark(uid, su, ay):
-        await query.answer(f"✅ {get_surah_name(su)} {su}:{ay}")
+        name = get_surah_name(su)
+        await query.answer(f"✅ {name} {su}:{ay} сохранён")
     else:
-        lang = user_data.get_language(uid)
-        await query.answer(S(lang)["bookmark_dup"])
+        await query.answer("📌 Уже в закладках!")
 
 
-async def _cb_surah_page(query):
-    """Handle surah browser pagination button clicks."""
-    await query.answer()
+async def _cb_delbookmark(query):
+    """Remove an ayah from bookmarks."""
     try:
-        page = int(query.data.split("_")[1])
-    except (IndexError, ValueError):
+        parts = query.data.split("_")
+        su, ay = int(parts[1]), int(parts[2])
+    except Exception:
+        await query.answer("❌")
         return
     uid = query.from_user.id
-    lang = user_data.get_language(uid)
-    await _send_surah_page(query, uid, lang, page=page, edit=True)
+    if user_data.remove_bookmark(uid, su, ay):
+        await query.answer(f"🗑 {su}:{ay} удалён")
+        # Refresh the bookmarks view
+        bm = user_data.get_bookmarks(uid)
+        if not bm:
+            await query.edit_message_text(
+                "🔖  <b>Закладки пусты</b>\n\n"
+                "Попробуйте:  /random",
+                parse_mode="HTML",
+            )
+        else:
+            msg = "🔖  <b>Ваши закладки:</b>\n\n"
+            buttons = []
+            for i, ref in enumerate(bm, 1):
+                s = int(ref.split(":")[0])
+                a = int(ref.split(":")[1])
+                name = get_surah_name(s)
+                msg += f"  {i}.  {name}  —  <code>{ref}</code>\n"
+                buttons.append([
+                    InlineKeyboardButton(
+                        f"📖 {name} {ref}",
+                        callback_data=f"load_{s}_{a}",
+                    ),
+                    InlineKeyboardButton("🗑", callback_data=f"delbm_{s}_{a}"),
+                ])
+            msg += "\n📌 Нажмите, чтобы открыть аят:"
+            await query.edit_message_text(
+                msg, parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(buttons),
+            )
+    else:
+        await query.answer("❌ Не найдено")
 
 
-async def _cb_hadith(query):
-    await query.answer()
+async def _cb_load_ayah(query):
+    """Load a specific ayah from bookmarks."""
+    await query.answer("📖 Загружаю…")
+    try:
+        parts = query.data.split("_")
+        su, ay = int(parts[1]), int(parts[2])
+    except Exception:
+        return
     uid = query.from_user.id
-    lang = user_data.get_language(uid)
-    s = S(lang)
+    data = fetch_ayah(su, ay)
+    if not data:
+        await query.answer("❌ Ошибка загрузки")
+        return
+    user_data.mark_ayah_read(uid, su, ay)
+    msg = format_ayah_compact(data)
+    kb = _ayah_keyboard(su, ay)
+    await query.message.reply_text(
+        msg, parse_mode="HTML", reply_markup=kb)
+
+
+async def _cb_more_hadith(query):
+    """Fetch another random hadith."""
+    await query.answer()
     h = fetch_random_hadith()
-    txt = _translate_hadith(h["text"], lang)
-    msg = f"{s['hadith_title']}\n\n<i>{txt}</i>\n\n📖 <i>{h['reference']}</i>"
-    await _safe_send(query, msg, keyboard=_build_hadith_keyboard(lang), lang=lang)
+    msg = format_hadith_message(h)
+    await _safe_send(query, msg, keyboard=_hadith_keyboard())
 
 
 # ═══════════════════════════════════════════
-# ⏰  SCHEDULED  +  REMINDER  ENGINE
+# ⏰  РАСПИСАНИЕ  (ежедневные аяты)
 # ═══════════════════════════════════════════
 
 _scheduler: AsyncIOScheduler | None = None
@@ -842,18 +683,17 @@ _bot_app: Application | None = None
 
 
 async def send_scheduled_message(app: Application):
-    """Send a scheduled daily ayah message to the main CHAT_ID."""
+    """Send a scheduled daily ayah + hadith to CHAT_ID."""
     try:
         logger.info("⏰ Scheduled message triggered")
-        lang = user_data.get_language(CHAT_ID)
-        data = fetch_random_ayah(lang)
+        data = fetch_random_ayah()
         if not data:
             logger.error("Scheduled: fetch failed")
             return
-        su, ay = data["surah_num"], data["ayah"]
+        su, ay = data["surah_num"], data["ayah_num"]
         hadith = fetch_random_hadith()
-        msg = format_ayah_compact(data, hadith, lang, 0)
-        kb = _build_ayah_keyboard(su, ay, lang)
+        msg = format_ayah_compact(data, hadith)
+        kb = _ayah_keyboard(su, ay)
         await app.bot.send_message(
             chat_id=CHAT_ID, text=msg[:4096],
             parse_mode="HTML", reply_markup=kb)
@@ -862,114 +702,8 @@ async def send_scheduled_message(app: Application):
         logger.error("Scheduled error: %s", e)
 
 
-async def send_reminder_message(app: Application, uid: int,
-                                surah: int | None, ayah: int | None,
-                                label: str):
-    """
-    Fire a personal reminder for a user.
-    Called by APScheduler at the user's configured time.
-    """
-    try:
-        logger.info("⏰ Reminder firing for uid=%s (surah=%s, ayah=%s)", uid, surah, ayah)
-        lang = user_data.get_language(uid)
-        s = S(lang)
-        data = fetch_ayah_text(surah, ayah, lang) if surah and ayah else fetch_random_ayah(lang)
-        if not data:
-            logger.error("⏰ Reminder: fetch failed for uid=%s", uid)
-            return
-        su, ay = data["surah_num"], data["ayah"]
-        user_data.mark_ayah_read(uid, su, ay)
-        label_line = f"\n📝 <i>{label}</i>" if label else ""
-        s_ar = get_surah_name(su)
-        s_en = data.get("surah_en", "")
-        flag = "🇷🇺"
-        msg = (
-            f"{s['reminder_msg']}{label_line}\n\n"
-            f"🕌 <b>{s_ar} ({s_en})</b>  •  {su}:{ay}\n\n"
-            f"📜 <i>{data['arabic']}</i>\n\n"
-            f"{flag} {data['translation']}\n\n"
-            f"{random.choice(s['reflections'])}\n\n"
-            f"{s['full_tafsir_hint']}"
-        )
-        kb = _build_ayah_keyboard(su, ay, lang)
-        await app.bot.send_message(chat_id=uid, text=msg[:4096],
-                                   parse_mode="HTML", reply_markup=kb)
-        logger.info("✅ Reminder sent → uid=%s  %s:%s", uid, su, ay)
-    except Exception as e:
-        logger.error("❌ Reminder error uid=%s: %s", uid, e, exc_info=True)
-
-
-def _reminder_job_id(uid, time_str: str) -> str:
-    return f"remind_{uid}_{time_str}"
-
-
-def _register_reminder_job(uid, reminder: dict, app: Application):
-    """
-    Register a single reminder as an APScheduler cron job.
-    
-    FIX: Added misfire_grace_time so jobs fire even if slightly delayed.
-    FIX: Ensured uid is always cast to int for send_message chat_id.
-    FIX: Added replace_existing=True to avoid duplicate job errors.
-    FIX: Added detailed logging for debugging.
-    """
-    if not _scheduler:
-        logger.warning("⚠️ Scheduler not initialized, cannot register reminder for uid=%s", uid)
-        return
-    jid = _reminder_job_id(uid, reminder["time"])
-    hh, mm = map(int, reminder["time"].split(":"))
-    try:
-        _scheduler.remove_job(jid)
-    except Exception:
-        pass
-    try:
-        _scheduler.add_job(
-            send_reminder_message, "cron", hour=hh, minute=mm,
-            args=[app, int(uid), reminder.get("surah"), reminder.get("ayah"),
-                  reminder.get("label", "")],
-            id=jid,
-            # CRITICAL: Allow up to 60s grace for misfires (server lag / busy loop)
-            misfire_grace_time=60,
-            # Replace existing job if it already exists (avoids ConflictingIdError)
-            replace_existing=True,
-        )
-        logger.info("📅 Registered reminder job: %s at %02d:%02d for uid=%s", jid, hh, mm, uid)
-    except Exception as e:
-        logger.error("❌ Failed to register reminder job %s: %s", jid, e, exc_info=True)
-
-
-def _remove_reminder_job(uid, time_str: str):
-    if not _scheduler:
-        return
-    try:
-        _scheduler.remove_job(_reminder_job_id(uid, time_str))
-    except Exception:
-        pass
-
-
-def _remove_all_reminder_jobs(uid):
-    if not _scheduler:
-        return
-    for r in user_data.get_reminders(uid):
-        _remove_reminder_job(uid, r["time"])
-
-
-def _load_all_reminders(app: Application):
-    """
-    Load all active reminders from user_data.json and register them
-    as APScheduler cron jobs. Called once at bot startup.
-    """
-    all_rems = user_data.get_all_reminders()
-    count = 0
-    for uid_str, rems in all_rems.items():
-        for r in rems:
-            if r.get("active", True):
-                _register_reminder_job(uid_str, r, app)
-                count += 1
-    logger.info("📅 Loaded %d active reminders from %d users", count, len(all_rems))
-
-
 # ═══════════════════════════════════════════
-# 🌐  FLASK WEB SERVER
+# 🌐  FLASK  WEB  SERVER
 # ═══════════════════════════════════════════
 
 flask_app = Flask(__name__, static_folder="webapp", static_url_path="/static")
@@ -977,15 +711,13 @@ CORS(flask_app)
 
 
 @flask_app.after_request
-def _add_ngrok_headers(response):
-    """Allow ngrok interstitial bypass for Telegram's embedded browser."""
+def _add_headers(response):
     response.headers["ngrok-skip-browser-warning"] = "true"
     return response
 
 
 @flask_app.route("/")
 def serve_root():
-    """Root URL redirect — so ngrok URL opens the webapp directly."""
     return send_from_directory("webapp", "index.html")
 
 
@@ -1001,14 +733,10 @@ def serve_webapp_file(filename):
 
 @flask_app.route("/api/tafsir")
 def api_tafsir():
-    """
-    GET /api/tafsir?surah=1&ayah=1&lang=ru
-    Returns TRANSLATED tafsir based on lang parameter.
-    """
+    """GET /api/tafsir?surah=1&ayah=1 — returns translated tafsir."""
     try:
         surah = int(flask_request.args.get("surah", 1))
         ayah = int(flask_request.args.get("ayah", 1))
-        lang = flask_request.args.get("lang", "ru")
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid params"}), 400
     if not (1 <= surah <= 114):
@@ -1020,7 +748,6 @@ def api_tafsir():
     raw_qurtubi = get_full_tafsir(surah, ayah, "qurtubi")
     raw_qushairi = get_full_tafsir(surah, ayah, "qushairi")
 
-    # Always translate to Russian (bot is Russian-only)
     t_qurtubi = translate_text(raw_qurtubi, "ru", "ar")
     t_qushairi = translate_text(raw_qushairi, "ru", "en")
 
@@ -1036,8 +763,8 @@ def api_tafsir():
         "qushairi_raw": raw_qushairi,
         "qurtubi_length": len(t_qurtubi),
         "qushairi_length": len(t_qushairi),
-        "lang": lang,
-        "translated": lang not in ("ar",),
+        "lang": "ru",
+        "translated": True,
         "nav": {"prev": {"surah": ps, "ayah": pa},
                 "next": {"surah": ns, "ayah": na}},
     })
@@ -1063,7 +790,7 @@ def _run_flask():
 
 
 # ═══════════════════════════════════════════
-# 🚀  MAIN
+# 🚀  ЗАПУСК
 # ═══════════════════════════════════════════
 
 async def main():
@@ -1071,7 +798,7 @@ async def main():
 
     _load_cache()
 
-    logger.info("🤖 Starting Quran & Tafsir Bot…")
+    logger.info("🤖 Starting Коран и Тафсир Bot…")
     logger.info("🌐 Web App URL: %s", WEBAPP_URL)
 
     flask_thread = threading.Thread(target=_run_flask, daemon=True)
@@ -1081,66 +808,49 @@ async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     _bot_app = app
 
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("surah", cmd_surah))
+    # 3 main commands
+    app.add_handler(CommandHandler("random", cmd_random))
     app.add_handler(CommandHandler("hadith", cmd_hadith))
-    app.add_handler(CommandHandler("bookmark", cmd_bookmark))
     app.add_handler(CommandHandler("bookmarks", cmd_bookmarks))
-    app.add_handler(CommandHandler("progress", cmd_progress))
-    app.add_handler(CommandHandler("times", cmd_times))
-    app.add_handler(CommandHandler("remind", cmd_remind))
-    app.add_handler(CommandHandler("reminders", cmd_reminders))
-    app.add_handler(CommandHandler("delremind", cmd_delremind))
+    # Legacy /start → same as /random
+    app.add_handler(CommandHandler("start", cmd_random))
+    # Callbacks
     app.add_handler(CallbackQueryHandler(handle_callback))
+    # Any other text → auto-welcome or hint
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND, handle_any_message))
 
-    # ── APScheduler: use UTC timezone and generous misfire_grace_time ──
-    # FIX: Without misfire_grace_time, jobs that fire even 1 second late are
-    #       silently dropped. This was the primary cause of reminders not firing.
-    #       Railway and other PaaS platforms can have momentary lag / sleep.
+    # APScheduler
     _scheduler = AsyncIOScheduler(
-        job_defaults={"misfire_grace_time": 120},  # allow up to 2 min late
+        job_defaults={"misfire_grace_time": 120},
     )
     for t in SCHEDULE_TIMES:
         hh, mm = map(int, t.split(":"))
-        _scheduler.add_job(send_scheduled_message, "cron",
-                           hour=hh, minute=mm, args=[app],
-                           id=f"schedule_{hh:02d}{mm:02d}",
-                           replace_existing=True,
-                           misfire_grace_time=120)
+        _scheduler.add_job(
+            send_scheduled_message, "cron",
+            hour=hh, minute=mm, args=[app],
+            id=f"schedule_{hh:02d}{mm:02d}",
+            replace_existing=True,
+            misfire_grace_time=120,
+        )
 
-    # FIX: Initialize and start bot BEFORE loading reminders,
-    #       so that app.bot is ready when reminder jobs fire.
     await app.initialize()
     await app.start()
-    logger.info("✅ Bot initialized and started")
+    logger.info("✅ Bot initialized")
 
-    # Now load user reminders and start the scheduler
-    _load_all_reminders(app)
     _scheduler.start()
-
-    # Log all registered jobs for debugging
     jobs = _scheduler.get_jobs()
-    logger.info("📅 Scheduler started with %d total jobs (%d schedules + reminders)",
-                len(jobs), len(SCHEDULE_TIMES))
-    for job in jobs:
-        logger.info("  📌 Job: %s  next_run=%s", job.id, job.next_run_time)
+    logger.info("📅 Scheduler: %d jobs", len(jobs))
 
-    logger.info("✅ Bot running!  Ctrl+C to stop.")
-
-    # ── Set the bot's command menu (the buttons users see) ──
-    from telegram import BotCommand
     await app.bot.set_my_commands([
-        BotCommand("surah", "Обзор сур"),
-        BotCommand("hadith", "Случайный хадис"),
-        BotCommand("remind", "Добавить напоминание"),
-        BotCommand("reminders", "Мои напоминания"),
-        BotCommand("bookmark", "Закладка аята"),
+        BotCommand("random", "Случайный аят"),
+        BotCommand("hadith", "Хадис дня"),
         BotCommand("bookmarks", "Мои закладки"),
-        BotCommand("start", "Начало"),
     ])
-    logger.info("📋 Bot menu commands updated")
+    logger.info("📋 Bot menu set (3 commands)")
 
     await app.updater.start_polling()
+    logger.info("✅ Bot running!  Ctrl+C to stop.")
 
     try:
         while True:

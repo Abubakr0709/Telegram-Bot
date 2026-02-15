@@ -59,14 +59,6 @@ SCHEDULE_TIMES = [
 DEFAULT_LANGUAGE = "ru"
 DEFAULT_TRANSLATION = "ru.kuliev"
 
-AVAILABLE_TRANSLATIONS = {
-    "ru": "🇷🇺 Русский",
-}
-
-QURAN_EDITIONS = {
-    "ru": "ru.kuliev",
-}
-
 # ========================
 # 📡 API ENDPOINTS
 # ========================
