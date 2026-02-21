@@ -17,4 +17,4 @@ deep-translator==1.11.4
 # 🎨 IMAGE GENERATION (Hadith Cards)
 # ========================
 
-Pillow==10.1.0
+Pillow==12.1.1
