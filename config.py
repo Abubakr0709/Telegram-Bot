@@ -38,3 +38,9 @@ AVAILABLE_LANGUAGES = {
 # Each returns {metadata: {...}, hadiths: [{hadithnumber, text, grades, reference}]}
 HADITH_API_BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/eng-bukhari"
 HADITH_SECTIONS = 100  # Sahih Bukhari has ~100 sections (books)
+
+# ========================
+# 🖼 IMAGE API (Pexels)
+# ========================
+
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")

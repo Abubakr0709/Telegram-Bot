@@ -1,6 +1,6 @@
-# ?? Hadith Telegram Bot
+# Hadith Telegram Bot
 
-Telegram bot for authentic Hadith (Sahih Bukhari) with a clean Telegram UX, image cards, favorites, and guided daily notifications.
+Telegram bot for authentic Hadith (Sahih Bukhari) with a clean Telegram UX, high-quality Islamic photos, favorites, and guided daily notifications.
 
 ---
 
@@ -14,13 +14,14 @@ Telegram bot for authentic Hadith (Sahih Bukhari) with a clean Telegram UX, imag
   - **Language**
 - No need to remember scheduler commands.
 
-### 2) Hadith image cards
-- Every hadith delivery is sent as a generated quote-card image.
+### 2) High-quality Islamic photo background (API)
+- Every hadith delivery tries to fetch a high-resolution Islamic photo via **Pexels API**.
+- Hadith text is sent separately as a normal Telegram message (not drawn on image).
 - Works for:
   - Manual `/hadith`
   - Callback "Another hadith"
   - Scheduled daily hadith
-- If image rendering fails, bot automatically falls back to text.
+- If photo fetch fails, hadith text is still delivered.
 
 ### 3) Daily hadith notifications (single schedule)
 - One daily time per user (HH:MM), managed via **Notifications** menu.
@@ -48,10 +49,11 @@ pip install -r requirements.txt
 
 ### 2. Configure
 
-Set environment variable:
+Set environment variables:
 
 ```bash
 export BOT_TOKEN="your-telegram-bot-token"
+export PEXELS_API_KEY="your-pexels-api-key"
 ```
 
 Or edit `config.py`.
@@ -73,13 +75,13 @@ Starts:
 | Command | Description |
 |--------|-------------|
 | `/start` | Welcome + main menu |
-| `/hadith` | Random hadith card |
+| `/hadith` | Random hadith |
 | `/hadith <keyword>` | Search hadith by keyword |
 | `/favorites` | List favorites |
 | `/unfav <id>` | Remove favorite by id |
 | `/lang` | Change language |
 
-You can still save quickly using inline **Save to favourites** buttons on hadith cards. Legacy scheduler/reminder commands are deprecated and redirect users to the **Notifications** button flow.
+You can still save quickly using inline **Save to favourites** buttons on hadith messages. Legacy scheduler/reminder commands are deprecated and redirect users to the **Notifications** button flow.
 
 ---
 
@@ -88,7 +90,7 @@ You can still save quickly using inline **Save to favourites** buttons on hadith
 ```
 Barkhudarov_Bot/
 +-- main.py
-+-- hadith_card.py
++-- islamic_images.py
 +-- user_data.py
 +-- config.py
 +-- requirements.txt
@@ -114,7 +116,7 @@ Barkhudarov_Bot/
 - `APScheduler`
 - `requests`
 - `deep-translator`
-- `Pillow`
+- `Pexels API`
 
 ---
 

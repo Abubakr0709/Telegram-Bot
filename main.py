@@ -8,7 +8,6 @@ guided notifications, image cards, and multi-language (RU / EN / TR).
 """
 
 import asyncio
-import io
 import logging
 import random
 
@@ -21,7 +20,6 @@ from telegram import (
     InlineKeyboardMarkup,
     BotCommand,
     ForceReply,
-    InputFile,
 )
 from telegram.ext import (
     Application,
@@ -37,9 +35,10 @@ from config import (
     AVAILABLE_LANGUAGES,
     HADITH_API_BASE,
     HADITH_SECTIONS,
+    PEXELS_API_KEY,
 )
 import user_data
-from hadith_card import render_hadith_card
+from islamic_images import fetch_islamic_photo_url
 
 # 
 #   LOGGING
@@ -98,7 +97,6 @@ _STRINGS = {
         "set_time_prompt": " Введите время в формате <code>HH:MM</code>:",
         "set_time_again": " Неверный формат. Введите <code>HH:MM</code>:",
         "deprecated_scheduler": "Эта команда устарела. Используйте кнопку <b>Уведомления</b>.",
-        "card_caption_daily": " <b>Хадис дня</b>\n{ref}",
         "lang_set": " Язык изменён.",
         "bad_time": " Формат времени: <code>HH:MM</code>",
         "loading": " Загружаю хадис",
@@ -145,7 +143,6 @@ _STRINGS = {
         "set_time_prompt": " Send time in <code>HH:MM</code> format:",
         "set_time_again": " Invalid format. Send <code>HH:MM</code>:",
         "deprecated_scheduler": "This command is deprecated. Use the <b>Notifications</b> button.",
-        "card_caption_daily": " <b>Hadith of the Day</b>\n{ref}",
         "lang_set": " Language changed.",
         "bad_time": " Time format: <code>HH:MM</code>",
         "loading": " Loading hadith",
@@ -192,7 +189,6 @@ _STRINGS = {
         "set_time_prompt": " Saati <code>HH:MM</code> formatında gönderin:",
         "set_time_again": " Geçersiz format. <code>HH:MM</code> gönderin:",
         "deprecated_scheduler": "Bu komut artık kullanılmıyor. <b>Bildirimler</b> düğmesini kullanın.",
-        "card_caption_daily": " <b>Günün Hadisi</b>\n{ref}",
         "lang_set": " Dil değiştirildi.",
         "bad_time": " Saat formatı: <code>HH:MM</code>",
         "loading": " Hadis yükleniyor",
@@ -344,26 +340,20 @@ async def _send_hadith_card_or_text(
     reply_markup: InlineKeyboardMarkup | None = None,
 ):
     translated = await asyncio.to_thread(translate_hadith, h["text"], lang)
-    caption_title = S(lang).get("card_caption_daily") if title_key == "daily_hadith_title" else S(lang)[title_key]
-    caption = f"{caption_title}\n{h['reference']}"
+    photo_url = await asyncio.to_thread(fetch_islamic_photo_url, PEXELS_API_KEY)
     try:
-        card = await asyncio.to_thread(render_hadith_card, translated, h["reference"], lang)
-        await bot.send_photo(
-            chat_id=chat_id,
-            photo=InputFile(io.BytesIO(card), filename="hadith.jpg"),
-            caption=caption[:1024],
-            parse_mode="HTML",
-            reply_markup=reply_markup,
-        )
+        if photo_url:
+            await bot.send_photo(chat_id=chat_id, photo=photo_url)
     except Exception as e:
-        logger.warning("Card rendering failed, sending text fallback: %s", e)
-        msg = f"{S(lang)[title_key]}\n\n<i>{translated}</i>\n\n <i>{h['reference']}</i>"
-        await bot.send_message(
-            chat_id=chat_id,
-            text=msg[:4096],
-            parse_mode="HTML",
-            reply_markup=reply_markup,
-        )
+        logger.warning("Photo delivery failed, continuing with text: %s", e)
+
+    msg = f"{S(lang)[title_key]}\n\n<i>{translated}</i>\n\n <i>{h['reference']}</i>"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=msg[:4096],
+        parse_mode="HTML",
+        reply_markup=reply_markup,
+    )
 
 
 # 
