@@ -1,28 +1,46 @@
-﻿# 🕌 Hadith Telegram Bot (Personal)
+# ?? Hadith Telegram Bot
 
-Telegram bot for delivering authentic Hadith (Sahih Bukhari) with **daily delivery**, **favorites**, and **category-based fetching**.
+Telegram bot for authentic Hadith (Sahih Bukhari) with a clean Telegram UX, image cards, favorites, and guided daily notifications.
 
 ---
 
 ## Features
 
-### 1) Daily Hadith at a fixed time (sequential, not random)
-- The bot sends **one hadith daily** at your chosen time (e.g., 08:30)
-- It uses a **sequential index** so you don’t keep repeating the same hadith
+### 1) Guided interface (button-first)
+- `/start` shows a clean menu:
+  - **Get Hadith**
+  - **Notifications**
+  - **Favorites**
+  - **Language**
+- No need to remember scheduler commands.
 
-### 2) Favorites ⭐
-- Save a hadith you like with `/fav`
-- Browse your saved list with `/favorites`
+### 2) Hadith image cards
+- Every hadith delivery is sent as a generated quote-card image.
+- Works for:
+  - Manual `/hadith`
+  - Callback "Another hadith"
+  - Scheduled daily hadith
+- If image rendering fails, bot automatically falls back to text.
 
-### 3) Category-based Hadith
-- Request hadith by category (example: patience, prayer, character)
-- Example: `/hadith sabr`
+### 3) Daily hadith notifications (single schedule)
+- One daily time per user (HH:MM), managed via **Notifications** menu.
+- Sequential hadith index is used for daily delivery.
+- You can set time or turn notifications off from buttons.
+
+### 4) Favorites
+- Save last hadith with `/fav` or inline button.
+- View with `/favorites`.
+- Remove with `/unfav <id>`.
+
+### 5) Multi-language
+- RU / EN / TR UI support.
+- Language can be changed from `/lang` or menu button.
 
 ---
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -30,79 +48,73 @@ pip install -r requirements.txt
 
 ### 2. Configure
 
-Set environment variables:
+Set environment variable:
 
 ```bash
 export BOT_TOKEN="your-telegram-bot-token"
-export CHAT_ID="your-telegram-chat-id"
 ```
 
-Or edit `config.py` directly.
+Or edit `config.py`.
 
-### 3. Run the Bot
+### 3. Run
 
 ```bash
 python main.py
 ```
 
-This starts:
-- ✅ Telegram bot (polling)
-- ✅ Scheduler (daily hadith + reminders)
+Starts:
+- Telegram bot polling
+- APScheduler for daily jobs
 
 ---
 
-## Commands
+## Bot Commands (visible menu)
 
 | Command | Description |
 |--------|-------------|
-| `/start` | Welcome message |
-| `/hadith` | Get a random hadith (fallback mode) |
-| `/hadith <category>` | Get a hadith by category (e.g., `/hadith sabr`) |
-| `/daily <HH:MM>` | Set **daily hadith time** (sequential delivery) |
-| `/dailyoff` | Disable daily hadith |
-| `/fav` | Save the **last hadith** as favorite ⭐ |
+| `/start` | Welcome + main menu |
+| `/hadith` | Random hadith card |
+| `/hadith <keyword>` | Search hadith by keyword |
 | `/favorites` | List favorites |
-| `/unfav <id>` | Remove a favorite by id |
-| `/remind <HH:MM>` | Daily reminder (separate from `/daily`) |
-| `/reminders` | List reminders |
-| `/delremind <id>` | Delete reminder #id |
-| `/lang` | Change language (RU/EN/TR) |
+| `/unfav <id>` | Remove favorite by id |
+| `/lang` | Change language |
+
+You can still save quickly using inline **Save to favourites** buttons on hadith cards. Legacy scheduler/reminder commands are deprecated and redirect users to the **Notifications** button flow.
 
 ---
 
-## File Structure (Hadith-only)
+## Project Structure
 
 ```
 Barkhudarov_Bot/
-├── main.py              # Telegram bot + scheduler
-├── config.py            # Settings & environment variables
-├── user_data.py         # User storage (daily time, favorites, prefs)
-├── requirements.txt     # Python dependencies
-├── user_data.json       # Runtime storage (created automatically)
++-- main.py
++-- hadith_card.py
++-- user_data.py
++-- config.py
++-- requirements.txt
++-- user_data.json
 ```
 
 ---
 
 ## Data Persistence
 
-User data is stored in `user_data.json`, including:
-- Daily hadith time (HH:MM)
-- Daily sequential index (which hadith was last sent)
-- Favorites list
-- Language preference
-- Reminders (if you keep them)
+`user_data.json` stores:
+- `daily_time`
+- `daily_index`
+- `favorites`
+- `language`
+- `last_hadith`
 
 ---
 
-
-
 ## Tech Stack
 
-- **python-telegram-bot** — Telegram Bot API
-- **APScheduler** — Scheduled jobs (daily hadith + reminders)
-- Hadith source:
-  - Either an API (Random Hadith / Bukhari source) **or**
-  - A local dataset (recommended later for reliability)
+- `python-telegram-bot`
+- `APScheduler`
+- `requests`
+- `deep-translator`
+- `Pillow`
 
 ---
 

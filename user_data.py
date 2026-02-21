@@ -4,7 +4,7 @@
 """
 💾 User Data Manager
 Favorites, daily hadith settings, language preferences,
-and reminders — persisted in JSON.
+persisted in JSON.
 """
 
 import json
@@ -40,14 +40,12 @@ def _get_user(data: dict, user_id) -> dict:
             "favorites": [],
             "daily_time": None,      # HH:MM or None
             "daily_index": 0,        # sequential hadith counter
-            "reminders": [],
         }
     # Migrate existing users — add missing keys
     u = data[uid]
     u.setdefault("favorites", [])
     u.setdefault("daily_time", None)
     u.setdefault("daily_index", 0)
-    u.setdefault("reminders", [])
     return u
 
 
@@ -152,62 +150,6 @@ def get_all_daily_users() -> dict:
         uid: u["daily_time"]
         for uid, u in data.items()
         if u.get("daily_time")
-    }
-
-
-# ========================
-# ⏰ REMINDERS
-# ========================
-
-def add_reminder(user_id, time_str: str, label: str = "") -> dict | None:
-    """Add a reminder. Returns the reminder dict or None if duplicate time."""
-    data = _load_data()
-    user = _get_user(data, user_id)
-
-    for r in user["reminders"]:
-        if r["time"] == time_str:
-            return None
-
-    reminder = {"time": time_str, "label": label, "active": True}
-    user["reminders"].append(reminder)
-    user["reminders"].sort(key=lambda r: r["time"])
-    _save_data(data)
-    return reminder
-
-
-def remove_reminder(user_id, index: int) -> bool:
-    """Remove a reminder by 1-based index."""
-    data = _load_data()
-    user = _get_user(data, user_id)
-    if index < 1 or index > len(user["reminders"]):
-        return False
-    user["reminders"].pop(index - 1)
-    _save_data(data)
-    return True
-
-
-def get_reminders(user_id) -> list:
-    data = _load_data()
-    user = _get_user(data, user_id)
-    return user["reminders"]
-
-
-def clear_reminders(user_id) -> int:
-    data = _load_data()
-    user = _get_user(data, user_id)
-    count = len(user["reminders"])
-    user["reminders"] = []
-    _save_data(data)
-    return count
-
-
-def get_all_reminders() -> dict:
-    """Returns {uid: [reminders]} for all users that have reminders."""
-    data = _load_data()
-    return {
-        uid: u["reminders"]
-        for uid, u in data.items()
-        if u.get("reminders")
     }
 
 # ========================
