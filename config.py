@@ -12,11 +12,11 @@ import os
 # 🤖 BOT CREDENTIALS
 # ========================
 
-BOT_TOKEN = os.environ.get(
-    "BOT_TOKEN",
-    "8500294939:AAHMCmTDOQRd3FtT2mqpO1IOLIFGvHs3ujk",
-)
-CHAT_ID = int(os.environ.get("CHAT_ID", "7258913956"))
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+if not BOT_TOKEN:
+    raise RuntimeError(
+        "BOT_TOKEN is not set. Define it in your environment (or .env) before running the bot."
+    )
 
 # ========================
 # 🌍 LANGUAGE SETTINGS
@@ -45,4 +45,3 @@ HADITH_SECTIONS = 100  # Sahih Bukhari has ~100 sections (books)
 # Get a free API key at https://unsplash.com/developers
 # If not set, hadith cards will use curated cached images or gradients
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
-

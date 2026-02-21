@@ -10,6 +10,7 @@ guided notifications, image cards, and multi-language (RU / EN / TR).
 import asyncio
 import logging
 import random
+import re
 
 import requests
 from deep_translator import GoogleTranslator
@@ -50,7 +51,7 @@ logging.basicConfig(
 logger = logging.getLogger("bot")
 
 # 
-#   i18n STRINGS
+#   i18n SJTRINGS
 # 
 
 _STRINGS = {
@@ -199,6 +200,11 @@ def S(lang: str) -> dict:
     return _STRINGS.get(lang, _STRINGS["en"])
 
 
+def _strip_html_tags(text: str) -> str:
+    """Remove lightweight HTML markup from strings used in plain captions."""
+    return re.sub(r"<[^>]+>", "", text).strip()
+
+
 # 
 #   HADITH  API
 # 
@@ -279,16 +285,6 @@ def translate_hadith(text: str, lang: str) -> str:
         return text
 
 
-# 
-#   MESSAGE FORMATTING
-# 
-
-def format_hadith(h: dict, lang: str, title_key: str = "hadith_title") -> str:
-    s = S(lang)
-    txt = translate_hadith(h["text"], lang)
-    return f"{s[title_key]}\n\n<i>{txt}</i>\n\n <i>{h['reference']}</i>"
-
-
 def hadith_keyboard(lang: str) -> InlineKeyboardMarkup:
     s = S(lang)
     return InlineKeyboardMarkup([
@@ -351,7 +347,7 @@ async def _send_hadith_card_or_text(
         )
         
         # Send as photo with caption
-        caption = f"📿 {S(lang)[title_key]}"
+        caption = f"📿 {_strip_html_tags(S(lang)[title_key])}"
         await bot.send_photo(
             chat_id=chat_id,
             photo=card_bytes,

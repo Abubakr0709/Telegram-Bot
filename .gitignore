@@ -6,8 +6,11 @@ __pycache__/
 dist/
 build/
 .venv/
+.venv-1/
+.venv-2/
 venv/
 env/
+.image_cache/
 
 # IDE
 .vscode/

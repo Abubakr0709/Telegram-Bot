@@ -77,7 +77,7 @@ def _get_islamic_image() -> Image.Image:
                     img = Image.open(io.BytesIO(img_response.content))
                     # Resize and crop to fit card dimensions
                     return _prepare_background(img)
-        except Exception as e:
+        except Exception:
             pass
     
     # Fallback: Try cached images
@@ -147,16 +147,6 @@ def _islamic_gradient(width: int, height: int) -> Image.Image:
         draw.line([(0, y), (width, y)], fill=(r, g, b))
     
     return img
-
-
-def _vertical_gradient(
-    width: int,
-    height: int,
-    top_rgb: tuple[int, int, int],
-    bottom_rgb: tuple[int, int, int],
-) -> Image.Image:
-    """Legacy gradient function (kept for compatibility)."""
-    return _islamic_gradient(width, height)
 
 
 def _measure(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> int:
@@ -267,3 +257,25 @@ def render_hadith_card(text: str, reference: str, lang: str) -> bytes:
     payload = f"{lang}\n{text}\n{reference}".encode("utf-8", errors="ignore")
     key = hashlib.sha256(payload).hexdigest()
     return _render_cached(key, text, reference, lang)
+
+
+# --- LOCAL TESTING BLOCK ---
+if __name__ == "__main__":
+    print("Testing Hadith card generation...")
+    
+    test_hadith = "The most beloved of deeds to Allah are those that are most consistent, even if it is small."
+    test_ref = "Sahih al-Bukhari 6464"
+    test_lang = "en"
+    
+    try:
+        # Generate the card using your local image cache
+        image_bytes = render_hadith_card(test_hadith, test_ref, test_lang)
+        
+        # Save the raw bytes to an actual image file so you can look at it
+        output_filename = "test_output.jpg"
+        with open(output_filename, "wb") as f:
+            f.write(image_bytes)
+            
+        print(f"✅ Success! Open '{output_filename}' in your project folder to see the result.")
+    except Exception as e:
+        print(f"❌ Error generating card: {e}")
