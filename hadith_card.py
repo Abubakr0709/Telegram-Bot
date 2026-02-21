@@ -7,11 +7,9 @@ Render hadith quote cards with Islamic background imagery.
 
 from __future__ import annotations
 
-import hashlib
 import io
 import os
 import random
-from functools import lru_cache
 
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
@@ -44,12 +42,33 @@ UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _IMAGE_CACHE_DIR = os.path.join(_BASE_DIR, ".image_cache")
 _FONTS_DIR = os.path.join(_BASE_DIR, "fonts")
+_NOTO_FONT_PATH = os.path.join(_FONTS_DIR, "NotoSans-Regular.ttf")
+_NOTO_DOWNLOAD_URL = (
+    "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/"
+    "hinted/ttf/NotoSans/NotoSans-Regular.ttf"
+)
 os.makedirs(_IMAGE_CACHE_DIR, exist_ok=True)
+os.makedirs(_FONTS_DIR, exist_ok=True)
+
+
+def _ensure_runtime_font() -> None:
+    """Ensure a Unicode TTF font exists in project fonts for production renders."""
+    if os.path.exists(_NOTO_FONT_PATH):
+        return
+    try:
+        r = requests.get(_NOTO_DOWNLOAD_URL, timeout=20)
+        r.raise_for_status()
+        with open(_NOTO_FONT_PATH, "wb") as f:
+            f.write(r.content)
+    except Exception:
+        # Best-effort: rendering will continue with other font fallbacks.
+        pass
 
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    _ensure_runtime_font()
     candidates = [
-        os.path.join(_FONTS_DIR, "NotoSans-Regular.ttf"),
+        _NOTO_FONT_PATH,
         os.path.join(_FONTS_DIR, "DejaVuSans.ttf"),
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -139,12 +158,16 @@ def _islamic_gradient(width: int, height: int) -> Image.Image:
     Create an Islamic-themed gradient background.
     Deep teal to dark blue with subtle texture.
     """
-    img = Image.new("RGB", (width, height), (14, 40, 52))
+    palettes = [
+        ((14, 40, 52), (8, 20, 35)),   # Deep teal to navy
+        ((27, 53, 38), (10, 30, 26)),  # Emerald to dark green
+        ((35, 28, 58), (14, 12, 30)),  # Indigo to deep violet
+        ((42, 30, 22), (18, 12, 8)),   # Warm brown to dark umber
+    ]
+    top_rgb, bottom_rgb = random.choice(palettes)
+
+    img = Image.new("RGB", (width, height), top_rgb)
     draw = ImageDraw.Draw(img)
-    
-    # Gradient from deep teal to dark navy
-    top_rgb = (14, 40, 52)      # Deep teal
-    bottom_rgb = (8, 20, 35)     # Dark navy
     
     for y in range(height):
         ratio = y / float(height - 1)
@@ -203,8 +226,7 @@ def _truncate_lines(
     return cut
 
 
-@lru_cache(maxsize=512)
-def _render_cached(key: str, text: str, reference: str, lang: str) -> bytes:
+def _render_card(text: str, reference: str, lang: str) -> bytes:
     # Get Islamic background image
     image = _get_islamic_image()
     
@@ -261,9 +283,7 @@ def _render_cached(key: str, text: str, reference: str, lang: str) -> bytes:
 
 
 def render_hadith_card(text: str, reference: str, lang: str) -> bytes:
-    payload = f"{lang}\n{text}\n{reference}".encode("utf-8", errors="ignore")
-    key = hashlib.sha256(payload).hexdigest()
-    return _render_cached(key, text, reference, lang)
+    return _render_card(text, reference, lang)
 
 
 # --- LOCAL TESTING BLOCK ---
