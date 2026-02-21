@@ -7,6 +7,7 @@ Telegram bot for authentic Hadith (Sahih Bukhari) with **beautiful Islamic image
 ## Recent Updates
 
 - Removed raw HTML tags from image captions in Telegram photo messages (no more `<b>...</b>` under generated pictures).
+- Improved Railway font loading for card rendering (checks bundled `fonts/NotoSans-Regular.ttf` and Linux font paths before fallback).
 - Conservative maintenance cleanup:
   - removed `bulk_downloader.py` (unused script with hardcoded API key)
   - removed runtime artifact folder `__pycache__/`
@@ -69,6 +70,8 @@ python download_islamic_images.py
 ```
 
 This creates a `.image_cache/` folder with high-quality Islamic images.
+
+If card text looks like a thin white line in production, add a Unicode font file at `fonts/NotoSans-Regular.ttf` in this repo and redeploy.
 
 ### 3. Configure
 

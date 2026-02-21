@@ -41,18 +41,25 @@ ISLAMIC_KEYWORDS = [
 ]
 
 UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
-_IMAGE_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".image_cache")
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_IMAGE_CACHE_DIR = os.path.join(_BASE_DIR, ".image_cache")
+_FONTS_DIR = os.path.join(_BASE_DIR, "fonts")
 os.makedirs(_IMAGE_CACHE_DIR, exist_ok=True)
 
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
+        os.path.join(_FONTS_DIR, "NotoSans-Regular.ttf"),
+        os.path.join(_FONTS_DIR, "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
         "DejaVuSans.ttf",
         "arial.ttf",
     ]
-    for name in candidates:
+    for font_path in candidates:
         try:
-            return ImageFont.truetype(name, size=size)
+            return ImageFont.truetype(font_path, size=size)
         except Exception:
             continue
     return ImageFont.load_default()
