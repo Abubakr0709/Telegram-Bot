@@ -19,16 +19,14 @@ MIN_WIDTH = 2048
 MIN_HEIGHT = 2048
 
 _QUERIES = [
-    "islamic mosque architecture",
-    "mosque interior islamic",
-    "quran islamic calligraphy",
-    "islamic geometric pattern",
-    "masjid dome minaret",
-    "islamic art mosque",
-    "grand mosque architecture",
-    "islamic prayer hall",
-    "arabesque islamic design",
-    "islamic pattern tile",
+    "islam quran mosque prayer",
+    "quran islamic calligraphy arabic",
+    "muslim prayer mosque interior",
+    "masjid mihrab minbar islamic",
+    "islamic architecture mosque dome minaret",
+    "islamic geometric arabesque pattern",
+    "ramadan quran mosque",
+    "eid prayer mosque",
 ]
 
 _FALLBACK_IMAGES = [
@@ -40,11 +38,33 @@ _FALLBACK_IMAGES = [
 
 _RECENT_URLS: deque[str] = deque(maxlen=40)
 
+_RELIGIOUS_HINTS = {
+    "islam", "islamic", "muslim", "mosque", "masjid", "quran", "koran",
+    "allah", "ramadan", "eid", "prayer", "salah", "dua", "tasbih",
+    "calligraphy", "arabic", "mihrab", "minbar", "minaret", "dome",
+    "kaaba", "makkah", "mecca", "madinah", "medina", "hijab",
+}
+
+_NON_RELIGIOUS_HINTS = {
+    "mountain", "forest", "waterfall", "beach", "ocean", "river", "sunset",
+    "landscape", "nature", "tree", "flower", "cityscape", "sky", "cloud",
+    "road", "car", "animal", "wildlife", "food",
+}
+
 
 def _is_high_quality(photo: dict[str, Any]) -> bool:
     width = int(photo.get("width", 0))
     height = int(photo.get("height", 0))
     return width >= MIN_WIDTH and height >= MIN_HEIGHT
+
+
+def _looks_islamic(photo: dict[str, Any]) -> bool:
+    alt = str(photo.get("alt", "")).lower()
+    if not alt:
+        return False
+    has_religious = any(k in alt for k in _RELIGIOUS_HINTS)
+    has_non_religious = any(k in alt for k in _NON_RELIGIOUS_HINTS)
+    return has_religious and not has_non_religious
 
 
 def _remember_and_pick(urls: list[str]) -> str | None:
@@ -77,6 +97,8 @@ def _query_pexels(api_key: str, query: str, page: int) -> list[str]:
     results: list[str] = []
     for p in photos:
         if not _is_high_quality(p):
+            continue
+        if not _looks_islamic(p):
             continue
         src = p.get("src", {})
         url = src.get("original") or src.get("large2x") or src.get("large")
