@@ -35,10 +35,9 @@ from config import (
     AVAILABLE_LANGUAGES,
     HADITH_API_BASE,
     HADITH_SECTIONS,
-    PEXELS_API_KEY,
 )
 import user_data
-from islamic_images import fetch_islamic_photo_url
+import hadith_card
 
 # 
 #   LOGGING
@@ -339,21 +338,36 @@ async def _send_hadith_card_or_text(
     title_key: str = "hadith_title",
     reply_markup: InlineKeyboardMarkup | None = None,
 ):
+    """Send hadith as a beautiful image card with Islamic background."""
     translated = await asyncio.to_thread(translate_hadith, h["text"], lang)
-    photo_url = await asyncio.to_thread(fetch_islamic_photo_url, PEXELS_API_KEY)
+    
     try:
-        if photo_url:
-            await bot.send_photo(chat_id=chat_id, photo=photo_url)
+        # Generate beautiful hadith card with Islamic imagery
+        card_bytes = await asyncio.to_thread(
+            hadith_card.render_hadith_card,
+            translated,
+            h["reference"],
+            lang
+        )
+        
+        # Send as photo with caption
+        caption = f"📿 {S(lang)[title_key]}"
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=card_bytes,
+            caption=caption,
+            reply_markup=reply_markup,
+        )
     except Exception as e:
-        logger.warning("Photo delivery failed, continuing with text: %s", e)
-
-    msg = f"{S(lang)[title_key]}\n\n<i>{translated}</i>\n\n <i>{h['reference']}</i>"
-    await bot.send_message(
-        chat_id=chat_id,
-        text=msg[:4096],
-        parse_mode="HTML",
-        reply_markup=reply_markup,
-    )
+        logger.error("Card generation failed, falling back to text: %s", e)
+        # Fallback to text-only message
+        msg = f"{S(lang)[title_key]}\n\n<i>{translated}</i>\n\n📖 <i>{h['reference']}</i>"
+        await bot.send_message(
+            chat_id=chat_id,
+            text=msg[:4096],
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+        )
 
 
 # 

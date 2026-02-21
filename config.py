@@ -40,7 +40,9 @@ HADITH_API_BASE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions
 HADITH_SECTIONS = 100  # Sahih Bukhari has ~100 sections (books)
 
 # ========================
-# 🖼 IMAGE API (Pexels)
+# 🖼 IMAGE API (Optional - Unsplash for diverse Islamic imagery)
 # ========================
+# Get a free API key at https://unsplash.com/developers
+# If not set, hadith cards will use curated cached images or gradients
+UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY", "")
 
-PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")

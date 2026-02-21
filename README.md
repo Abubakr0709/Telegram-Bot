@@ -1,62 +1,76 @@
-# Hadith Telegram Bot
+﻿# 🕌 Hadith Telegram Bot
 
-Telegram bot for authentic Hadith (Sahih Bukhari) with a clean Telegram UX, high-quality Islamic photos, favorites, and guided daily notifications.
+Telegram bot for authentic Hadith (Sahih Bukhari) with **beautiful Islamic image cards**, favorites, daily notifications, and multi-language support (RU/EN/TR).
 
 ---
 
-## Features
+## ✨ Features
 
-### 1) Guided interface (button-first)
+### 1) Beautiful Islamic Image Cards
+- Every hadith is delivered as a **high-quality graphic card** with:
+  - Authentic Islamic imagery (mosques, Quran, calligraphy, Kaaba, etc.)
+  - Hadith text elegantly overlaid with perfect readability
+  - 1080x1350px resolution optimized for mobile screens
+- Backgrounds sourced from:
+  - **Unsplash API** (optional, for diverse fresh images)
+  - **Curated cache** (pre-downloaded Islamic photos, works offline)
+  - **Islamic gradient** (elegant fallback if images unavailable)
+
+### 2) Guided Interface (Button-First)
 - `/start` shows a clean menu:
-  - **Get Hadith**
-  - **Notifications**
-  - **Favorites**
-  - **Language**
-- No need to remember scheduler commands.
+  - **📿 Get Hadith**
+  - **⏰ Notifications**
+  - **⭐ Favorites**
+  - **🌍 Language**
+- No need to remember complex commands
 
-### 2) High-quality Islamic photo background (API)
-- Every hadith delivery tries to fetch a high-resolution Islamic photo via **Pexels API**.
-- Hadith text is sent separately as a normal Telegram message (not drawn on image).
-- Works for:
-  - Manual `/hadith`
-  - Callback "Another hadith"
-  - Scheduled daily hadith
-- If photo fetch fails, hadith text is still delivered.
+### 3) Daily Hadith Notifications
+- Set a single daily time (HH:MM) per user
+- Sequential hadith delivery (no repeats)
+- Managed via interactive buttons
+- Enable/disable easily from the Notifications menu
 
-### 3) Daily hadith notifications (single schedule)
-- One daily time per user (HH:MM), managed via **Notifications** menu.
-- Sequential hadith index is used for daily delivery.
-- You can set time or turn notifications off from buttons.
+### 4) Favorites ⭐
+- Save hadiths with `/fav` or inline button
+- View collection with `/favorites`
+- Remove with `/unfav <id>`
 
-### 4) Favorites
-- Save last hadith with `/fav` or inline button.
-- View with `/favorites`.
-- Remove with `/unfav <id>`.
-
-### 5) Multi-language
-- RU / EN / TR UI support.
-- Language can be changed from `/lang` or menu button.
+### 5) Multi-Language 🌍
+- Full UI support: Russian, English, Turkish
+- Switch language anytime via `/lang` or menu
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Install dependencies
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure
+### 2. (Optional) Download Islamic Image Cache
+
+Pre-download curated Islamic backgrounds for offline use:
+
+```bash
+python download_islamic_images.py
+```
+
+This creates a `.image_cache/` folder with high-quality Islamic images.
+
+### 3. Configure
 
 Set environment variables:
 
 ```bash
 export BOT_TOKEN="your-telegram-bot-token"
-export PEXELS_API_KEY="your-pexels-api-key"
+export UNSPLASH_ACCESS_KEY="your-unsplash-api-key"  # Optional
 ```
 
 Or edit `config.py`.
+
+> **Note:** Unsplash API key is optional. The bot works perfectly with cached images or gradient fallback.
 
 ### 3. Run
 
