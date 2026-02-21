@@ -9,11 +9,14 @@ Returns high-quality background image URLs suitable for Telegram posts.
 from __future__ import annotations
 
 import random
+from collections import deque
 from typing import Any
 
 import requests
 
 PEXELS_SEARCH_URL = "https://api.pexels.com/v1/search"
+MIN_WIDTH = 2048
+MIN_HEIGHT = 2048
 
 _QUERIES = [
     "islamic mosque architecture",
@@ -21,6 +24,11 @@ _QUERIES = [
     "quran islamic calligraphy",
     "islamic geometric pattern",
     "masjid dome minaret",
+    "islamic art mosque",
+    "grand mosque architecture",
+    "islamic prayer hall",
+    "arabesque islamic design",
+    "islamic pattern tile",
 ]
 
 _FALLBACK_IMAGES = [
@@ -30,43 +38,66 @@ _FALLBACK_IMAGES = [
     "https://images.pexels.com/photos/2087391/pexels-photo-2087391.jpeg?auto=compress&cs=tinysrgb&h=2160&w=3840",
 ]
 
+_RECENT_URLS: deque[str] = deque(maxlen=40)
+
 
 def _is_high_quality(photo: dict[str, Any]) -> bool:
     width = int(photo.get("width", 0))
     height = int(photo.get("height", 0))
-    # Require at least 4K on one side and decent size on the other.
-    return max(width, height) >= 3840 and min(width, height) >= 2000
+    return width >= MIN_WIDTH and height >= MIN_HEIGHT
 
 
-def fetch_islamic_photo_url(api_key: str, query: str | None = None) -> str | None:
-    """Fetch a high-quality Islamic photo URL from Pexels."""
-    if not api_key:
-        return random.choice(_FALLBACK_IMAGES)
+def _remember_and_pick(urls: list[str]) -> str | None:
+    if not urls:
+        return None
+    uniq = list(dict.fromkeys(urls))
+    fresh = [u for u in uniq if u not in _RECENT_URLS]
+    pool = fresh or uniq
+    picked = random.choice(pool)
+    _RECENT_URLS.append(picked)
+    return picked
 
-    q = query or random.choice(_QUERIES)
+
+def _query_pexels(api_key: str, query: str, page: int) -> list[str]:
     headers = {"Authorization": api_key}
     params = {
-        "query": q,
-        "per_page": 40,
-        "page": random.randint(1, 5),
-        "orientation": "landscape",
+        "query": query,
+        "per_page": 80,
+        "page": page,
+        "orientation": random.choice(["landscape", "portrait"]),
         "size": "large",
     }
-
     try:
         resp = requests.get(PEXELS_SEARCH_URL, headers=headers, params=params, timeout=12)
         resp.raise_for_status()
         photos = resp.json().get("photos", [])
     except Exception:
-        return None
+        return []
 
-    picks = [p for p in photos if _is_high_quality(p)]
-    if not picks:
-        picks = photos
-    if not picks:
-        return random.choice(_FALLBACK_IMAGES)
+    results: list[str] = []
+    for p in photos:
+        if not _is_high_quality(p):
+            continue
+        src = p.get("src", {})
+        url = src.get("original") or src.get("large2x") or src.get("large")
+        if url:
+            results.append(url)
+    return results
 
-    chosen = random.choice(picks)
-    src = chosen.get("src", {})
-    # Prefer original for quality, fallback to large2x if needed.
-    return src.get("original") or src.get("large2x") or src.get("large") or random.choice(_FALLBACK_IMAGES)
+
+def fetch_islamic_photo_url(api_key: str, query: str | None = None) -> str | None:
+    """Fetch a non-repeating Islamic photo URL (>=2K) from Pexels."""
+    if not api_key:
+        return _remember_and_pick(_FALLBACK_IMAGES)
+
+    merged: list[str] = []
+    attempts = 4
+    for _ in range(attempts):
+        q = query or random.choice(_QUERIES)
+        page = random.randint(1, 30)
+        merged.extend(_query_pexels(api_key, q, page))
+
+    picked = _remember_and_pick(merged)
+    if picked:
+        return picked
+    return _remember_and_pick(_FALLBACK_IMAGES)
