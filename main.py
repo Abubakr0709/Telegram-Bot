@@ -16,6 +16,7 @@
 
 import asyncio
 import hashlib
+import html as _html
 import json
 import logging
 import os
@@ -261,13 +262,17 @@ def fetch_random_hadith() -> dict:
         data = r.json()
         hadiths = data.get("hadiths", [])
         if hadiths:
-            h = random.choice(hadiths)
+            idx = random.randint(0, len(hadiths) - 1)
+            h = hadiths[idx]
             ref = h.get("reference", {})
             book = ref.get("book", section) if isinstance(ref, dict) else section
             return {
                 "text": h.get("text", ""),
                 "number": h.get("hadithnumber", "?"),
                 "book": book,
+                "section": section,
+                "index": idx,
+                "total": len(hadiths),
             }
     except Exception as e:
         logger.error("Hadith API error: %s", e)
@@ -275,7 +280,38 @@ def fetch_random_hadith() -> dict:
         "text": "Actions are judged by intentions, so each man will have what he intended.",
         "number": 1,
         "book": 1,
+        "section": 1,
+        "index": 0,
+        "total": 1,
     }
+
+
+def fetch_hadith_by_pos(section: int, index: int) -> dict:
+    """Fetch a hadith by exact section and index position."""
+    try:
+        section = max(1, min(section, HADITH_SECTIONS))
+        url = f"{HADITH_API_BASE}/{section}.json"
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        hadiths = data.get("hadiths", [])
+        if not hadiths:
+            return fetch_random_hadith()
+        index = max(0, min(index, len(hadiths) - 1))
+        h = hadiths[index]
+        ref = h.get("reference", {})
+        book = ref.get("book", section) if isinstance(ref, dict) else section
+        return {
+            "text": h.get("text", ""),
+            "number": h.get("hadithnumber", "?"),
+            "book": book,
+            "section": section,
+            "index": index,
+            "total": len(hadiths),
+        }
+    except Exception as e:
+        logger.error("Hadith API (pos) error: %s", e)
+        return fetch_random_hadith()
 
 
 # ═══════════════════════════════════════════
@@ -304,10 +340,24 @@ def _ayah_keyboard(surah: int, ayah: int) -> InlineKeyboardMarkup:
     ])
 
 
-def _hadith_keyboard() -> InlineKeyboardMarkup:
-    """Inline keyboard for a hadith message."""
+def _hadith_keyboard(section: int = 1, index: int = 0,
+                     total: int = 1) -> InlineKeyboardMarkup:
+    """Inline keyboard for a hadith message with prev/next."""
+    prev_sec, prev_idx = section, index - 1
+    if prev_idx < 0:
+        prev_sec = section - 1 if section > 1 else HADITH_SECTIONS
+        prev_idx = -1  # sentinel: will be clamped to last item
+    next_sec, next_idx = section, index + 1
+    if next_idx >= total:
+        next_sec = section + 1 if section < HADITH_SECTIONS else 1
+        next_idx = 0
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Ещё хадис", callback_data="more_hadith")],
+        [
+            InlineKeyboardButton("⬅️", callback_data=f"hadith_nav_{prev_sec}_{prev_idx}"),
+            InlineKeyboardButton(f"📿 {section}:{index+1}", callback_data="noop"),
+            InlineKeyboardButton("➡️", callback_data=f"hadith_nav_{next_sec}_{next_idx}"),
+        ],
+        [InlineKeyboardButton("🔄 Случайный хадис", callback_data="more_hadith")],
     ])
 
 
@@ -322,6 +372,10 @@ def format_ayah_message(data: dict) -> str:
     qushairi = get_tafsir_for_ayah(su, ay, "qushairi")
     q_ru = translate_text(qurtubi, "ru", "ar")
     qs_ru = translate_text(qushairi, "ru", "en")
+
+    # Escape HTML-breaking chars so Telegram doesn't reject the message
+    q_ru = _html.escape(q_ru)
+    qs_ru = _html.escape(qs_ru)
 
     if len(q_ru) > 600:
         q_ru = q_ru[:597] + "…"
@@ -354,6 +408,7 @@ def format_ayah_message(data: dict) -> str:
 def format_hadith_message(h: dict) -> str:
     """Format a hadith message with Russian translation."""
     text_ru = translate_text(h["text"], "ru", "en") if h["text"] else ""
+    text_ru = _html.escape(text_ru)
     if len(text_ru) > 1500:
         text_ru = text_ru[:1497] + "…"
 
@@ -388,6 +443,7 @@ def format_ayah_compact(data: dict, hadith: dict | None = None) -> str:
 
     if hadith:
         h_ru = translate_text(hadith["text"], "ru", "en")
+        h_ru = _html.escape(h_ru)
         if len(h_ru) > 300:
             h_ru = h_ru[:297] + "…"
         msg += (
@@ -456,16 +512,23 @@ async def cmd_random(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_WELCOME, parse_mode="HTML")
 
     wait = await update.message.reply_text("📖 Загружаю аят… ✨")
-    data = fetch_random_ayah()
-    if not data:
-        await wait.edit_text("❌ Ошибка загрузки. Попробуйте /random ещё раз.")
-        return
+    try:
+        data = await asyncio.to_thread(fetch_random_ayah)
+        if not data:
+            await wait.edit_text("❌ Ошибка загрузки. Попробуйте /random ещё раз.")
+            return
 
-    su, ay = data["surah_num"], data["ayah_num"]
-    user_data.mark_ayah_read(uid, su, ay)
-    msg = format_ayah_message(data)
-    kb = _ayah_keyboard(su, ay)
-    await _safe_send(wait, msg, keyboard=kb)
+        su, ay = data["surah_num"], data["ayah_num"]
+        user_data.mark_ayah_read(uid, su, ay)
+        msg = await asyncio.to_thread(format_ayah_message, data)
+        kb = _ayah_keyboard(su, ay)
+        await _safe_send(wait, msg, keyboard=kb)
+    except Exception as e:
+        logger.error("/random error: %s", e)
+        try:
+            await wait.edit_text("❌ Ошибка загрузки. Попробуйте /random ещё раз.")
+        except Exception:
+            pass
 
 
 async def cmd_hadith(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -476,10 +539,12 @@ async def cmd_hadith(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         user_data.ensure_user(uid)
         await update.message.reply_text(_WELCOME, parse_mode="HTML")
 
-    h = fetch_random_hadith()
-    msg = format_hadith_message(h)
+    h = await asyncio.to_thread(fetch_random_hadith)
+    msg = await asyncio.to_thread(format_hadith_message, h)
+    kb = _hadith_keyboard(h.get("section", 1), h.get("index", 0),
+                          h.get("total", 1))
     await update.message.reply_text(
-        msg, parse_mode="HTML", reply_markup=_hadith_keyboard())
+        msg, parse_mode="HTML", reply_markup=kb)
 
 
 async def cmd_bookmarks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -561,6 +626,8 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _cb_delbookmark(query)
     elif d.startswith("load_"):
         await _cb_load_ayah(query)
+    elif d.startswith("hadith_nav_"):
+        await _cb_hadith_nav(query)
     elif d == "more_hadith":
         await _cb_more_hadith(query)
     else:
@@ -576,12 +643,12 @@ async def _cb_nav(query):
     except Exception:
         return
     uid = query.from_user.id
-    data = fetch_ayah(su, ay)
+    data = await asyncio.to_thread(fetch_ayah, su, ay)
     if not data:
         await query.answer("❌ Ошибка загрузки")
         return
     user_data.mark_ayah_read(uid, su, ay)
-    msg = format_ayah_compact(data)
+    msg = await asyncio.to_thread(format_ayah_compact, data)
     kb = _ayah_keyboard(su, ay)
     await _safe_send(query, msg, keyboard=kb)
 
@@ -655,23 +722,40 @@ async def _cb_load_ayah(query):
     except Exception:
         return
     uid = query.from_user.id
-    data = fetch_ayah(su, ay)
+    data = await asyncio.to_thread(fetch_ayah, su, ay)
     if not data:
         await query.answer("❌ Ошибка загрузки")
         return
     user_data.mark_ayah_read(uid, su, ay)
-    msg = format_ayah_compact(data)
+    msg = await asyncio.to_thread(format_ayah_compact, data)
     kb = _ayah_keyboard(su, ay)
     await query.message.reply_text(
         msg, parse_mode="HTML", reply_markup=kb)
 
 
+async def _cb_hadith_nav(query):
+    """Navigate to prev/next hadith."""
+    await query.answer()
+    try:
+        parts = query.data.split("_")  # hadith_nav_{sec}_{idx}
+        sec, idx = int(parts[2]), int(parts[3])
+    except Exception:
+        return
+    h = await asyncio.to_thread(fetch_hadith_by_pos, sec, idx)
+    msg = await asyncio.to_thread(format_hadith_message, h)
+    kb = _hadith_keyboard(h.get("section", 1), h.get("index", 0),
+                          h.get("total", 1))
+    await _safe_send(query, msg, keyboard=kb)
+
+
 async def _cb_more_hadith(query):
     """Fetch another random hadith."""
     await query.answer()
-    h = fetch_random_hadith()
-    msg = format_hadith_message(h)
-    await _safe_send(query, msg, keyboard=_hadith_keyboard())
+    h = await asyncio.to_thread(fetch_random_hadith)
+    msg = await asyncio.to_thread(format_hadith_message, h)
+    kb = _hadith_keyboard(h.get("section", 1), h.get("index", 0),
+                          h.get("total", 1))
+    await _safe_send(query, msg, keyboard=kb)
 
 
 # ═══════════════════════════════════════════
@@ -686,13 +770,13 @@ async def send_scheduled_message(app: Application):
     """Send a scheduled daily ayah + hadith to CHAT_ID."""
     try:
         logger.info("⏰ Scheduled message triggered")
-        data = fetch_random_ayah()
+        data = await asyncio.to_thread(fetch_random_ayah)
         if not data:
             logger.error("Scheduled: fetch failed")
             return
         su, ay = data["surah_num"], data["ayah_num"]
-        hadith = fetch_random_hadith()
-        msg = format_ayah_compact(data, hadith)
+        hadith = await asyncio.to_thread(fetch_random_hadith)
+        msg = await asyncio.to_thread(format_ayah_compact, data, hadith)
         kb = _ayah_keyboard(su, ay)
         await app.bot.send_message(
             chat_id=CHAT_ID, text=msg[:4096],
